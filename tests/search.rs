@@ -66,6 +66,15 @@ fn the_check_extension_sees_mate_at_the_horizon() {
 }
 
 #[test]
+fn quiescence_sees_mate_by_capture() {
+    // Whatever black plays, Qxg7# follows, with the bishop behind the queen. At depth 1 that
+    // capture is only seen in quiescence, which must notice the mate rather than stand pat
+    // on winning a pawn.
+    let (_, score) = solve("7k/6p1/6Pp/8/3Q4/8/1B6/6K1 b - - 0 1", 1);
+    assert_eq!(score, Score::Mate(-1));
+}
+
+#[test]
 fn being_mated_is_reported_with_a_negative_count() {
     // Whatever black plays, Qg7 or Qh7 style mates follow: Kh7 walks into Qg7#.
     let (_, score) = solve("7k/8/5K2/8/6Q1/8/8/8 b - - 0 1", 4);
