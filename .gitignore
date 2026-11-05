@@ -1,0 +1,29 @@
+# Rust build output
+/target/
+
+# Profiling / benchmarking artefacts
+*.profraw
+*.profdata
+perf.data*
+flamegraph.svg
+
+# Engine runtime artefacts
+*.log
+/games/
+*.pgn.tmp
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.swp
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# oh-my-claudecode local state
+.omc/
+
+# Local environment
+.env

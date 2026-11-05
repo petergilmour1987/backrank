@@ -1,0 +1,31 @@
+[package]
+name = "backrank"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Backrank Chess Engine"
+publish = false
+
+[lib]
+name = "backrank"
+path = "src/lib.rs"
+
+[[bin]]
+name = "backrank"
+path = "src/main.rs"
+
+[dependencies]
+
+[dev-dependencies]
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+debug = false
+
+# Fast-to-build optimised profile for profiling / perft runs with symbols.
+[profile.profiling]
+inherits = "release"
+debug = true
