@@ -264,6 +264,7 @@ impl<'a> Searcher<'a> {
         let mut best = None;
         for depth in 1..=max_depth {
             self.can_abort = depth > 1;
+            self.seldepth = 0;
             let (root_best, score) = self.search_root(depth);
             if self.aborted {
                 break;

@@ -3,9 +3,11 @@
 A chess engine for standard chess, written in Rust. It speaks the UCI protocol and is
 developed against Stockfish on a difficulty ladder that gets harder as Backrank improves.
 
-**Status:** early development. Move generation is complete and verified with perft, and
-the engine speaks UCI, but for now it plays a random legal move: the real search is still
-to come.
+**Status:** in development towards v1. Backrank plays real chess: alpha-beta search with
+iterative deepening, quiescence search, move ordering and time management, evaluating
+material and piece placement. Against Stockfish's strength-limited settings at 8+0.08, it
+beats `UCI_Elo` 1900 and is about even with 2000. That rating is an estimate and probably
+optimistic at this fast time control; see [`results/ladder.csv`](results/ladder.csv).
 The roadmap and progress are in [`docs/plan-v1.md`](docs/plan-v1.md).
 
 ## Requirements
@@ -39,15 +41,20 @@ id author petergilmour1987
 option name Move Overhead type spin default 20 min 0 max 5000
 uciok
 position startpos moves e2e4
-go movetime 1000
-info depth 1 score cp 0 nodes 20 nps 20000 time 0 pv g8f6
-bestmove g8f6
+go depth 5
+info depth 1 seldepth 3 score cp 10 nodes 24 nps 24000 time 0 pv b8c6
+info depth 2 seldepth 6 score cp -40 nodes 199 nps 199000 time 0 pv b8c6 b1c3
+info depth 3 seldepth 7 score cp 10 nodes 1592 nps 1592000 time 0 pv b8c6 b1c3 g8f6
+info depth 4 seldepth 12 score cp -35 nodes 16651 nps 16651000 time 1 pv g8f6 e4e5 f6e4 b1c3
+info depth 5 seldepth 15 score cp 0 nodes 216590 nps 10313809 time 21 pv e7e5 b1c3 b8c6 g1f3 g8f6
+bestmove e7e5
 quit
 ```
 
 It supports the standard commands: `uci`, `isready`, `setoption`, `ucinewgame`,
 `position`, `go` (with `wtime`, `btime`, `winc`, `binc`, `movestogo`, `depth`, `nodes`,
-`movetime` and `infinite`), `stop` and `quit`. A bare `go` searches until `stop`.
+`movetime` and `infinite`), `stop` and `quit`. A bare `go` searches until `stop`. `go mate`
+and `searchmoves` are accepted but not yet supported, and pondering isn't offered.
 
 | Option | Default | Effect |
 |---|---|---|
@@ -167,6 +174,10 @@ cargo xtask ladder --rung sf-elo1500    # check a particular rung
 cargo xtask ladder --note "add quiescence search"
 ```
 
+On a Mac, run long matches under `caffeinate -i` (for example
+`caffeinate -i cargo xtask ladder`). If the machine sleeps, clocks keep running and games
+are lost on time.
+
 A run plays 240 games at 8+0.08 (about 10 minutes against Stockfish). It prints the score,
 the Elo difference with a 95% confidence interval, and the likelihood of superiority
 (LOS). Against a rung with a rating, it also prints an estimated rating for Backrank.
@@ -237,8 +248,8 @@ cargo xtask selfplay
 
 This builds Backrank and plays it against itself through fastchess. The result doesn't
 matter. The test passes only if every game ends normally: any crash, illegal move, time
-forfeit or stalled game is reported as a failure. 200 games take a few seconds while
-Backrank plays random moves.
+forfeit or stalled game is reported as a failure. 200 games at the default time control
+take about 5 minutes.
 
 | Option | Default | Effect |
 |---|---|---|

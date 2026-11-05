@@ -376,9 +376,9 @@ The ladder runs record how much each feature is worth.
 3. **Draw detection:** repetition (searching Zobrist keys back to the last irreversible
    move), the 50-move rule, and insufficient material. The keys are already in
    `Position`'s undo history (`Undo.key`); add an accessor or an `is_repetition` method there.
-   Any move not freshly generated in the current position, such as the PV move followed down
-   the tree, must pass an `is_pseudo_legal` check before `make_move` (the move-ordering
-   step needs this).
+   Any move not freshly generated in the current position must pass an `is_pseudo_legal`
+   check before `make_move`. In v1 nothing needs it, since the PV move only reorders
+   generated moves; a transposition table will.
 4. **Quiescence search:** stand-pat plus captures and queen promotions.
 5. **Move ordering:** the PV move from the previous iteration first (triangular PV
    table), then captures ordered by MVV-LVA, then quiet moves.
@@ -395,6 +395,31 @@ with playing strength.
 
 **Exit check:** each step passes SPRT or is justified in its commit message, and the
 ladder result for each step is recorded.
+
+**Done 2026-11-05:** every step passed SPRT, and all ladder runs are in `results/ladder.csv`.
+
+| Step | Commit | SPRT vs previous step | Ladder (240 games per rung at 8+0.08) | Est. rating |
+|---|---|---|---|---|
+| 1. Material, fixed depth 4 | `9dcdeb0` | 149–0–0 | passed `random` to `blunder10`; 25.8% vs `sf-elo1320` | 1137 |
+| 2. Iterative deepening, time | `33d7716` | +368 [+315, +439] | 59.0% vs `sf-elo1320` | 1383 |
+| 3. Draw detection | `87f0dcb` | +38 [+17, +60] | 58.3% vs `sf-elo1320` | 1378 |
+| 4–5. Quiescence, move ordering | `47cf1f7` | +364 [+310, +436] | passed 1320, 1400; 52.5% vs `sf-elo1500` | 1517 |
+| 6. Check extension | `61742b9` | +129 [+97, +162] | passed 1500; 45.2% vs `sf-elo1600` | 1567 |
+| 7. Piece-square tables | `e6defc3` | +712 [+586, +inf] | passed 1600–1900; 54.6% vs `sf-elo2000` | 2032 |
+
+The estimate comes from the last rung played in each run, and the interval is about ±45.
+
+- The v1 goal and stretch goal (§1) are both met well before Phase 6. The ratings are
+  probably optimistic: Stockfish's `UCI_Elo` scale is fitted to CCRL Blitz, not to 8+0.08,
+  and it wasn't checked against any other engine. Self-play gains also overstate real
+  ones: step 3's +38 didn't show against Stockfish at all.
+- Steps 4 and 5 were merged. Quiescence without capture ordering took 3.5 million nodes
+  and 264 ms for depth 1 on Kiwipete, which is a time-forfeit risk.
+- No `is_pseudo_legal` check was needed. The PV move only reorders freshly generated
+  moves, so it can never be illegal. A transposition table will need one (§9).
+- The Mac must not sleep during a match. Use `caffeinate -i`.
+- The Phase 5 review found no correctness defects. Its strength ideas change how the
+  engine plays, so each needs an SPRT, and they are listed in §9.
 
 ### Phase 6 — Hardening and v1.0.0
 
@@ -514,8 +539,19 @@ implement → cargo test (+ --release -- --ignored if movegen changed)
 
 ## 9. After v1 (v2 roadmap, in expected value order)
 
+Small search ideas from the Phase 5 review, each to be tested with SPRT:
+
+- In quiescence, don't stand pat when in check: search all evasions, and score mate if
+  there are none.
+- When time runs out, use a partly completed iteration if its first root move finished,
+  instead of discarding it.
+- Don't search underpromotion captures in quiescence, and generate captures directly
+  there rather than filtering all moves.
+
+The larger features:
+
 1. Transposition table with TT-move ordering and a `Hash` option. This was Rustic's
-   largest single gain.
+   largest single gain. TT moves can be hash collisions, so add `is_pseudo_legal` first.
 2. Killer moves and the history heuristic.
 3. Principal variation search and aspiration windows.
 4. Null-move pruning, late move reductions and futility pruning.

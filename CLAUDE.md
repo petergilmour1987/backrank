@@ -13,7 +13,8 @@ src/attacks/        # leaper tables (compile time) and magic bitboards for slide
 src/board/          # Position: bitboards + mailbox, FEN, Zobrist, make/unmake, attack queries
 src/movegen/        # pseudo-legal generation, MoveList, legal_moves / find_legal_move
 src/perft.rs        # perft and divide
-src/search/         # move choice (random legal move until Phase 5), Limits, Info, Score
+src/eval/           # static evaluation: material + piece-square tables
+src/search/         # iterative deepening alpha-beta, quiescence, ordering, time management
 src/uci/            # UCI loop: stdin thread -> engine thread -> per-`go` search thread
 src/main.rs         # thin binary; parses I/O and calls into the library
 tests/              # integration tests: perft.rs (deep depths #[ignore]d), uci.rs (runs the binary)
@@ -82,11 +83,13 @@ pass. Run them locally: the GitHub workflow is manual-only for now, to save Acti
 
 ## Status
 
-Phases 0 (tooling), 1 (core types, `Position`, FEN, Zobrist), 2 (move generation,
-make/unmake, perft), 3 (UCI protocol, random-move player) and 4 (Stockfish ladder harness)
-are done; next is Phase 5 (search and evaluation). From Phase 5 on, follow the development
-loop in plan §8: tests, then `cargo xtask sprt`, then `cargo xtask ladder --note ...`, then
-commit the code together with the new `results/` rows. After changing move
+Phases 0 to 5 are done (tooling, core types, move generation, UCI, Stockfish ladder, search
+and evaluation); Backrank is on the `sf-elo2000` rung. Next is Phase 6 (hardening and
+v1.0.0). For any search or eval change, follow the development loop in plan §8: tests, then
+`caffeinate -i cargo xtask sprt`, then `caffeinate -i cargo xtask ladder --note ...`, then
+commit. Commit the code first, so runs are labelled with a clean hash, and the `results/`
+rows afterwards. The ladder builds the working tree, so don't leave other edits in it when
+a run starts. Stage explicit paths when committing. After changing move
 generation or make/unmake, also run `cargo test --release --test perft -- --ignored`, and
 use `cargo xtask perft-diff` to localise any mismatch. The v1 roadmap (phases, decisions,
 Stockfish ladder, UCI spec, perft suite) is in `docs/plan-v1.md`; follow its phase order
