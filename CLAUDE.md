@@ -11,6 +11,7 @@ src/lib.rs          # engine library — all chess logic belongs here
 src/main.rs         # thin binary; parses I/O and calls into the library
 tests/              # integration tests (create when needed)
 benches/            # benchmarks (create when needed)
+docs/               # plans and design docs — v1 plan: docs/plan-v1.md
 ```
 
 Keep `main.rs` thin: no chess logic in the binary. Anything worth testing lives in
@@ -54,4 +55,6 @@ and `cargo test` must all pass.
 
 ## Status
 
-Project scaffold only — no engine code yet.
+Project scaffold only — no engine code yet. The v1 roadmap (phases, decisions,
+Stockfish ladder, UCI spec, perft suite) is in `docs/plan-v1.md`; follow its phase order
+and exit checks.
