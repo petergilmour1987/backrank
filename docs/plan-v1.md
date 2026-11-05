@@ -316,8 +316,13 @@ the harness for bias) and about 0% against `sf-elo1320`. Both rows are recorded 
 - All three rows are in `results/ladder.csv`.
 - `sprt --base HEAD`, the random mover against itself, accepted H0 after 4,489 games in
   75 s.
-- `calibrate` was checked with short runs, then discarded; the real calibration is still
-  to do.
+- Calibration (240 games per rung at 8+0.08, Stockfish 19) rated the blunder rungs
+  `blunder10` 1063, `blunder25` 778, `blunder40` 498, `blunder60` 236, `blunder80` −21 and
+  `random` −268. Each scored 16–19% against the rung above, so the rungs are evenly
+  spaced, about 250–285 Elo apart. Each step is uncertain by about ±60 Elo, and the error
+  adds up down the chain.
+- A first attempt lost the `blunder60` match to 32 time forfeits while the Mac slept.
+  Calibrate refused to record a rating from it; run long matches under `caffeinate -i`.
 - Stockfish 19's source confirms the `UCI_Elo` scale: it was fitted to games against the
   Stash engine, and Skill 0..19 covers roughly CCRL Blitz 1320–3190.
 - Changes from the original design:
@@ -527,6 +532,7 @@ implement → cargo test (+ --release -- --ignored if movegen changed)
 | ~~`UCI_Elo` calibration basis (CCRL scale, time control)~~ | Resolved in Phase 4: Stockfish 19's `search.h` says Skill 0..19 covers roughly CCRL Blitz 1320–3190, fitted to games against the Stash engine. Estimates at our faster time control are still approximate. |
 | sfproxy rungs might not be evenly spaced | `xtask calibrate` measures them. Adjust *p* values if neighbouring rungs are too close. |
 | Noise from the M4 Pro's mixed performance and efficiency cores | Default concurrency 8, below the performance-core count. Both engines in a game share the same conditions. |
+| The Mac sleeping during a match (clocks keep running, so games are lost on time) | Run long matches under `caffeinate -i`. The faults checks catch it: calibrate refuses the result, and ladder blocks promotion. |
 | A Stockfish upgrade changes the opponent | Use a snapshot binary in `tools/engines/`, and record the Stockfish version in every CSV row. |
 | Draw and resign adjudication trusting buggy scores early on | Adjudication stays off until Phase 5 step 2. After that, resign adjudication is two-sided only. |
 

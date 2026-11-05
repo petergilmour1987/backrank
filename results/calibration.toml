@@ -36,3 +36,39 @@ score = 0.16666666666666666
 tc = "8+0.08"
 stockfish = "Stockfish 19"
 date = "2026-11-05 15:43:27"
+
+[blunder60]
+rating = 236.49539870489167
+bound = "exact"
+blunder = 0.6
+against = "blunder40"
+against_rating = 498.44471780761495
+games = 240
+score = 0.18125
+tc = "8+0.08"
+stockfish = "Stockfish 19"
+date = "2026-11-05 17:05:40"
+
+[blunder80]
+rating = -20.619301595489958
+bound = "exact"
+blunder = 0.8
+against = "blunder60"
+against_rating = 236.49539870489167
+games = 240
+score = 0.18541666666666667
+tc = "8+0.08"
+stockfish = "Stockfish 19"
+date = "2026-11-05 17:17:45"
+
+[random]
+rating = -268.3105081814805
+bound = "exact"
+blunder = 1.0
+against = "blunder80"
+against_rating = -20.619301595489958
+games = 240
+score = 0.19375
+tc = "8+0.08"
+stockfish = "Stockfish 19"
+date = "2026-11-05 17:24:13"

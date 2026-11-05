@@ -197,6 +197,10 @@ cargo xtask calibrate                   # all blunder rungs, strongest first (1 
 cargo xtask calibrate --rung blunder10  # just one
 ```
 
+Run it under `caffeinate -i cargo xtask calibrate` on a Mac. If the machine sleeps during
+a match, the clocks keep running and games are lost on time. Calibrate then refuses the
+result, and you have to rerun that rung.
+
 The blunder rungs have no rating of their own. `calibrate` works down from `sf-elo1320`:
 each rung plays its stronger neighbour, and its rating is that neighbour's rating plus the
 measured difference. If a rung loses or wins every game, the gap can't be measured, so
