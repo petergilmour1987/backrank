@@ -321,6 +321,10 @@ impl<'a> Searcher<'a> {
     /// searched `depth` plies deeper, within the window (`alpha`, `beta`). `on_pv` says
     /// whether every move so far followed the previous iteration's principal variation.
     fn negamax(&mut self, depth: u32, ply: usize, mut alpha: i32, beta: i32, on_pv: bool) -> i32 {
+        // Check extension: search one ply deeper when in check. Quiescence only looks at
+        // captures, so it can't judge a check: it wouldn't even notice checkmate.
+        let in_check = self.pos.in_check();
+        let depth = depth + u32::from(in_check);
         if depth == 0 {
             return self.quiescence(ply, alpha, beta);
         }
@@ -370,11 +374,7 @@ impl<'a> Searcher<'a> {
         }
         if legal == 0 {
             // Checkmate (the shorter the better for the winner) or stalemate.
-            return if self.pos.in_check() {
-                -MATE + ply as i32
-            } else {
-                0
-            };
+            return if in_check { -MATE + ply as i32 } else { 0 };
         }
         best
     }
@@ -498,8 +498,8 @@ mod tests {
 
     #[test]
     fn finds_mate_in_one() {
-        // Back-rank mate: Ra8#.
-        let (best, info) = best_move("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1", 2);
+        // Back-rank mate: Ra8#. The check extension sees it even at depth 1.
+        let (best, info) = best_move("6k1/5ppp/8/8/8/8/8/R5K1 w - - 0 1", 1);
         assert_eq!(best.unwrap().to_string(), "a1a8");
         assert_eq!(info.score, Score::Mate(1));
     }
