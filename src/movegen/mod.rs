@@ -8,10 +8,11 @@ use crate::attacks;
 use crate::board::Position;
 use crate::types::{Bitboard, CastlingRights, Color, Move, Piece, PieceType, Rank, Square};
 use std::fmt;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 /// More than the most moves possible in any position (218).
-const CAPACITY: usize = 256;
+pub const MAX_MOVES: usize = 256;
+const CAPACITY: usize = MAX_MOVES;
 
 /// A fixed-capacity list of moves, so generating moves never allocates.
 #[derive(Clone)]
@@ -45,6 +46,12 @@ impl Deref for MoveList {
 
     fn deref(&self) -> &[Move] {
         &self.moves[..self.len]
+    }
+}
+
+impl DerefMut for MoveList {
+    fn deref_mut(&mut self) -> &mut [Move] {
+        &mut self.moves[..self.len]
     }
 }
 

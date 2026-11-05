@@ -1,13 +1,17 @@
-//! Choosing a move: iterative deepening negamax alpha-beta search, with time management.
+//! Choosing a move: iterative deepening negamax alpha-beta search with quiescence search,
+//! move ordering and time management.
 //!
 //! The search goes one ply deeper each iteration and reports after each. An iteration that
 //! is stopped part way is thrown away, so the move played always comes from a completed
 //! search. Depth 1 is never stopped, so there is always a move.
 
+mod ordering;
+
 use crate::board::Position;
 use crate::eval;
 use crate::movegen::{self, MoveList};
-use crate::types::Move;
+use crate::types::{Move, PieceType};
+use ordering::Ordered;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
@@ -216,6 +220,8 @@ struct Searcher<'a> {
     /// Set once the search has been told to stop; scores found after that are unreliable.
     aborted: bool,
     pv: PvTable,
+    /// The principal variation of the last completed iteration, tried first in the next.
+    prev_pv: Vec<Move>,
 }
 
 impl<'a> Searcher<'a> {
@@ -232,6 +238,7 @@ impl<'a> Searcher<'a> {
             can_abort: false,
             aborted: false,
             pv: PvTable::new(),
+            prev_pv: Vec::new(),
         }
     }
 
@@ -270,6 +277,7 @@ impl<'a> Searcher<'a> {
                 time: self.limits.start.elapsed(),
                 pv: self.pv.root_line(),
             });
+            self.prev_pv = self.pv.root_line();
             // Between iterations, stop for any reason the node checks would.
             if self.stop.load(Ordering::Relaxed)
                 || self.soft_deadline.is_some_and(|d| Instant::now() >= d)
@@ -290,11 +298,12 @@ impl<'a> Searcher<'a> {
         movegen::generate(self.pos, &mut moves);
         let mut alpha = -INFINITY;
         let mut best = None;
-        for &m in moves.iter() {
+        let pv_move = self.prev_pv.first().copied();
+        for m in Ordered::new(self.pos, moves, pv_move) {
             if !self.pos.make_move(m) {
                 continue;
             }
-            let score = -self.negamax(depth - 1, 1, -INFINITY, -alpha);
+            let score = -self.negamax(depth - 1, 1, -INFINITY, -alpha, Some(m) == pv_move);
             self.pos.unmake_move();
             if self.aborted {
                 break;
@@ -309,8 +318,12 @@ impl<'a> Searcher<'a> {
     }
 
     /// The fail-soft negamax value of the current position, `ply` moves from the root,
-    /// searched `depth` plies deeper, within the window (`alpha`, `beta`).
-    fn negamax(&mut self, depth: u32, ply: usize, mut alpha: i32, beta: i32) -> i32 {
+    /// searched `depth` plies deeper, within the window (`alpha`, `beta`). `on_pv` says
+    /// whether every move so far followed the previous iteration's principal variation.
+    fn negamax(&mut self, depth: u32, ply: usize, mut alpha: i32, beta: i32, on_pv: bool) -> i32 {
+        if depth == 0 {
+            return self.quiescence(ply, alpha, beta);
+        }
         self.pv.clear(ply);
         self.nodes += 1;
         self.seldepth = self.seldepth.max(ply);
@@ -320,20 +333,26 @@ impl<'a> Searcher<'a> {
         if self.is_draw() {
             return 0;
         }
-        if depth == 0 || ply >= MAX_PLY - 1 {
+        if ply >= MAX_PLY - 1 {
             return eval::evaluate(self.pos);
         }
 
         let mut moves = MoveList::new();
         movegen::generate(self.pos, &mut moves);
+        // Only while on the old principal variation is its next move worth trying first.
+        let pv_move = if on_pv {
+            self.prev_pv.get(ply).copied()
+        } else {
+            None
+        };
         let mut best = -INFINITY;
         let mut legal = 0;
-        for &m in moves.iter() {
+        for m in Ordered::new(self.pos, moves, pv_move) {
             if !self.pos.make_move(m) {
                 continue;
             }
             legal += 1;
-            let score = -self.negamax(depth - 1, ply + 1, -beta, -alpha);
+            let score = -self.negamax(depth - 1, ply + 1, -beta, -alpha, Some(m) == pv_move);
             self.pos.unmake_move();
             if self.aborted {
                 return 0;
@@ -356,6 +375,57 @@ impl<'a> Searcher<'a> {
             } else {
                 0
             };
+        }
+        best
+    }
+
+    /// The value of the current position once captures have played out: the side to move
+    /// may "stand pat" on the static evaluation, or try a capture (or queen promotion) to
+    /// do better. This keeps the search from stopping in the middle of an exchange.
+    fn quiescence(&mut self, ply: usize, mut alpha: i32, beta: i32) -> i32 {
+        self.pv.clear(ply);
+        self.nodes += 1;
+        self.seldepth = self.seldepth.max(ply);
+        if self.should_stop() {
+            return 0;
+        }
+        if self.is_draw() {
+            return 0;
+        }
+        let stand_pat = eval::evaluate(self.pos);
+        if stand_pat >= beta || ply >= MAX_PLY - 1 {
+            return stand_pat;
+        }
+        alpha = alpha.max(stand_pat);
+
+        let mut all = MoveList::new();
+        movegen::generate(self.pos, &mut all);
+        let mut tactical = MoveList::new();
+        for &m in all.iter() {
+            if m.is_capture() || m.promotion_piece() == Some(PieceType::Queen) {
+                tactical.push(m);
+            }
+        }
+        let mut best = stand_pat;
+        for m in Ordered::new(self.pos, tactical, None) {
+            if !self.pos.make_move(m) {
+                continue;
+            }
+            let score = -self.quiescence(ply + 1, -beta, -alpha);
+            self.pos.unmake_move();
+            if self.aborted {
+                return 0;
+            }
+            if score > best {
+                best = score;
+                if score > alpha {
+                    alpha = score;
+                    self.pv.update(ply, m);
+                    if score >= beta {
+                        break;
+                    }
+                }
+            }
         }
         best
     }
@@ -458,6 +528,21 @@ mod tests {
         assert_eq!(info.pv.first().copied(), best);
         assert_eq!(info.pv.len(), 3, "{:?}", info.pv);
         assert!(info.nodes > 0 && info.seldepth >= 3);
+    }
+
+    #[test]
+    fn quiescence_sees_through_exchanges() {
+        // Nxd5 wins a pawn only if nothing recaptures. Here the c6 pawn recaptures, so a
+        // 1-ply search must see the exchange (N for P) and not take.
+        let (best, _) = best_move("4k3/8/2p5/3p4/8/2N5/8/4K3 w - - 0 1", 1);
+        assert_ne!(best.unwrap().to_string(), "c3d5");
+        // Undefended, the pawn is free.
+        let (best, info) = best_move("4k3/8/8/3p4/8/2N5/4P3/4K3 w - - 0 1", 1);
+        assert_eq!(best.unwrap().to_string(), "c3d5");
+        assert!(
+            matches!(info.score, Score::Centipawns(cp) if cp >= 400),
+            "{info:?}"
+        );
     }
 
     #[test]
