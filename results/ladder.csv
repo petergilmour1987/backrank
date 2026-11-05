@@ -11,3 +11,6 @@ date,commit,bench_nodes,rung,rung_rating,rung_bound,stockfish,tc,games,wins,draw
 2026-11-05 17:56:54,9dcdeb0-dirty-ccaf300c,,sf-elo1320,1320,exact,Stockfish 19,8+0.08,240,54,16,170,0,25.8,-183,-235,-138,0.0,1137,1085,1182,0,0,0,0,910866896491904451,stayed,"Phase 5.1: material eval, fixed-depth-4 alpha-beta"
 2026-11-05 18:19:05,33d7716,,sf-elo1320,1320,exact,Stockfish 19,8+0.08,240,134,15,91,0,59.0,63,20,107,99.8,1383,1340,1427,0,0,0,0,8194523512058279523,stayed,Phase 5.2: iterative deepening + time management
 2026-11-05 19:03:18,87f0dcb,,sf-elo1320,1320,exact,Stockfish 19,8+0.08,240,133,14,93,0,58.3,58,16,103,99.6,1378,1336,1423,0,0,0,0,249719064172404669,stayed,Phase 5.3: draw detection
+2026-11-05 19:30:48,47cf1f7,,sf-elo1320,1320,exact,Stockfish 19,8+0.08,240,178,8,54,0,75.8,199,152,253,100.0,1519,1472,1573,0,0,0,0,550478718075609946,promoted to sf-elo1400,Phase 5.4/5.5: quiescence + move ordering
+2026-11-05 19:41:14,47cf1f7,,sf-elo1400,1400,exact,Stockfish 19,8+0.08,240,185,3,52,0,77.7,217,168,275,100.0,1617,1568,1675,0,0,0,0,8863053852675484834,promoted to sf-elo1500,Phase 5.4/5.5: quiescence + move ordering
+2026-11-05 19:52:10,47cf1f7,,sf-elo1500,1500,exact,Stockfish 19,8+0.08,240,121,10,109,0,52.5,17,-26,61,78.6,1517,1474,1561,0,0,0,0,8722780460930021679,stayed,Phase 5.4/5.5: quiescence + move ordering
