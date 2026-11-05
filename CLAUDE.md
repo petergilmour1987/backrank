@@ -9,9 +9,13 @@ library (the engine) and a binary (the front end that talks to GUIs / the user).
 Cargo.toml          # workspace root + the `backrank` package ([lib] + [[bin]], both `backrank`)
 src/lib.rs          # engine library — all chess logic belongs here
 src/types/          # Square/File/Rank, Bitboard, Color/PieceType/Piece, CastlingRights, Move
-src/board/          # Position: bitboards + mailbox, FEN, Zobrist keys, invariant checks
+src/attacks/        # leaper tables (compile time) and magic bitboards for sliders
+src/board/          # Position: bitboards + mailbox, FEN, Zobrist, make/unmake, attack queries
+src/movegen/        # pseudo-legal generation, MoveList, legal_moves / find_legal_move
+src/perft.rs        # perft and divide
+src/uci/            # UCI front end (so far: parse_position for `position` syntax)
 src/main.rs         # thin binary; parses I/O and calls into the library
-tests/              # integration tests (create when needed)
+tests/              # integration tests: perft.rs (deep depths are #[ignore]d)
 benches/            # benchmarks (create when needed)
 xtask/              # dev tooling crate, run as `cargo xtask <cmd>` (alias in .cargo/config.toml)
 tools/              # bin/, books/, engines/ are installed by `cargo xtask setup` (gitignored)
@@ -36,6 +40,8 @@ cargo build --profile profiling # release + debug symbols, for profilers/flamegr
 
 cargo xtask setup               # install fastchess, opening book, Stockfish snapshot into tools/
 cargo xtask smoke               # harness check: Stockfish Skill 0 vs full strength via fastchess
+cargo xtask perft-diff --depth N [--fen F]   # compare perft with Stockfish, find the bad move
+cargo run --release -- perft N [startpos | fen F] [moves ...]  # perft split by first move
 ```
 
 Keep `README.md`'s usage guide current when commands or options are added or change.
@@ -68,7 +74,9 @@ pass. Run them locally: the GitHub workflow is manual-only for now, to save Acti
 
 ## Status
 
-Phases 0 (tooling) and 1 (core types, `Position`, FEN, Zobrist) are done; next is Phase 2
-(move generation and perft). The v1 roadmap (phases, decisions,
+Phases 0 (tooling), 1 (core types, `Position`, FEN, Zobrist) and 2 (move generation,
+make/unmake, perft) are done; next is Phase 3 (UCI protocol). After changing move
+generation or make/unmake, also run `cargo test --release --test perft -- --ignored`, and
+use `cargo xtask perft-diff` to localise any mismatch. The v1 roadmap (phases, decisions,
 Stockfish ladder, UCI spec, perft suite) is in `docs/plan-v1.md`; follow its phase order
 and exit checks.

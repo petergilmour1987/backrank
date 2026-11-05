@@ -1,11 +1,14 @@
 //! The board position.
 
 mod fen;
+mod make;
 mod zobrist;
 
 pub use fen::FenError;
 
+use crate::attacks;
 use crate::types::{Bitboard, CastlingRights, Color, File, Piece, PieceType, Rank, Square};
+use make::Undo;
 use std::fmt;
 use zobrist::KEYS;
 
@@ -14,7 +17,10 @@ use zobrist::KEYS;
 ///
 /// Pieces are stored twice, as bitboards (for move generation) and as a square-to-piece
 /// array (for "what is on this square?"). The two always agree.
-#[derive(Clone, PartialEq, Eq)]
+///
+/// Each `Position` (and each clone) keeps its own history of the moves made on it, so
+/// [`Position::unmake_move`] can take them back.
+#[derive(Clone)]
 pub struct Position {
     /// One bitboard per piece, indexed by [`Piece::index`].
     pieces: [Bitboard; 12],
@@ -32,6 +38,8 @@ pub struct Position {
     /// Starts at 1 and goes up after each black move.
     fullmove_number: u16,
     key: u64,
+    /// One entry per move made with `make_move`, most recent last.
+    history: Vec<Undo>,
 }
 
 impl Position {
@@ -54,6 +62,7 @@ impl Position {
             halfmove_clock: 0,
             fullmove_number: 1,
             key: 0,
+            history: Vec::new(),
         }
     }
 
@@ -108,6 +117,35 @@ impl Position {
         self.key
     }
 
+    /// True if any piece of colour `by` attacks `sq`.
+    pub fn is_square_attacked(&self, sq: Square, by: Color) -> bool {
+        let occupied = self.occupied();
+        let own = |kind| self.pieces(Piece::new(by, kind));
+        let diagonal = own(PieceType::Bishop) | own(PieceType::Queen);
+        let straight = own(PieceType::Rook) | own(PieceType::Queen);
+        // A `by` pawn attacks `sq` exactly when a pawn of the other colour on `sq` would
+        // attack the pawn's square.
+        !(attacks::pawn_attacks(!by, sq) & own(PieceType::Pawn)).is_empty()
+            || !(attacks::knight_attacks(sq) & own(PieceType::Knight)).is_empty()
+            || !(attacks::king_attacks(sq) & own(PieceType::King)).is_empty()
+            || !(attacks::bishop_attacks(sq, occupied) & diagonal).is_empty()
+            || !(attacks::rook_attacks(sq, occupied) & straight).is_empty()
+    }
+
+    /// True if the side to move is in check.
+    pub fn in_check(&self) -> bool {
+        let us = self.side_to_move;
+        self.is_square_attacked(self.king_square(us), !us)
+    }
+
+    /// Whether a `capturer` pawn could capture en passant onto `ep`. FEN parsing and
+    /// `make_move` both use this rule, so a position has the same key however it was
+    /// reached. Pins are ignored: a pinned capturer still counts.
+    fn can_capture_en_passant(&self, ep: Square, capturer: Color) -> bool {
+        let pawns = self.pieces(Piece::new(capturer, PieceType::Pawn));
+        !(attacks::pawn_attacks(!capturer, ep) & pawns).is_empty()
+    }
+
     /// Places `piece` on the empty square `sq`, keeping the key up to date.
     fn put_piece(&mut self, sq: Square, piece: Piece) {
         debug_assert!(self.mailbox[sq.index()].is_none(), "{sq} is occupied");
@@ -116,6 +154,24 @@ impl Position {
         self.colors[piece.color().index()] |= bb;
         self.mailbox[sq.index()] = Some(piece);
         self.key ^= KEYS.pieces[piece.index()][sq.index()];
+    }
+
+    /// Removes and returns the piece on `sq`, keeping the key up to date.
+    fn remove_piece(&mut self, sq: Square) -> Piece {
+        let piece = self.mailbox[sq.index()]
+            .take()
+            .unwrap_or_else(|| panic!("no piece on {sq} to remove"));
+        let bb = Bitboard::from_square(sq);
+        self.pieces[piece.index()] ^= bb;
+        self.colors[piece.color().index()] ^= bb;
+        self.key ^= KEYS.pieces[piece.index()][sq.index()];
+        piece
+    }
+
+    /// Moves the piece on `from` to the empty square `to`.
+    fn move_piece(&mut self, from: Square, to: Square) {
+        let piece = self.remove_piece(from);
+        self.put_piece(to, piece);
     }
 
     /// The key computed from scratch, to check the incrementally updated one.
@@ -140,16 +196,19 @@ impl Position {
     /// with the mailbox, colour boards with piece boards, the key with a fresh computation,
     /// one king per side, and the en passant square on the right rank.
     pub(crate) fn check_invariants(&self) -> Result<(), String> {
+        // This runs after every make and unmake in debug builds, so it avoids allocating.
+        let all_pieces = Piece::all().fold(Bitboard::EMPTY, |acc, p| acc | self.pieces(p));
+        let total: u32 = Piece::all().map(|p| self.pieces(p).count()).sum();
+        if total != all_pieces.count() {
+            return Err("two piece bitboards share a square".to_string());
+        }
         for sq in Square::all() {
-            let holders: Vec<Piece> = Piece::all()
-                .filter(|&p| self.pieces(p).contains(sq))
-                .collect();
-            match (self.mailbox[sq.index()], holders.as_slice()) {
-                (None, []) => {}
-                (Some(piece), [holder]) if piece == *holder => {}
-                (mailbox, bitboards) => {
+            match self.mailbox[sq.index()] {
+                Some(piece) if self.pieces(piece).contains(sq) => {}
+                None if !all_pieces.contains(sq) => {}
+                mailbox => {
                     return Err(format!(
-                        "{sq}: mailbox has {mailbox:?} but piece bitboards have {bitboards:?}"
+                        "{sq}: mailbox has {mailbox:?} but the piece bitboards disagree"
                     ));
                 }
             }
@@ -189,6 +248,38 @@ impl Position {
         Ok(())
     }
 }
+
+/// Positions are equal when the position itself is: pieces, side to move, castling rights,
+/// en passant square and both move counters. How each was reached (the move history) is
+/// not compared.
+impl PartialEq for Position {
+    fn eq(&self, other: &Position) -> bool {
+        // Destructured so that adding a field forces a decision here.
+        let Position {
+            pieces,
+            colors,
+            mailbox,
+            side_to_move,
+            castling,
+            en_passant,
+            halfmove_clock,
+            fullmove_number,
+            key,
+            history: _,
+        } = self;
+        *pieces == other.pieces
+            && *colors == other.colors
+            && *mailbox == other.mailbox
+            && *side_to_move == other.side_to_move
+            && *castling == other.castling
+            && *en_passant == other.en_passant
+            && *halfmove_clock == other.halfmove_clock
+            && *fullmove_number == other.fullmove_number
+            && *key == other.key
+    }
+}
+
+impl Eq for Position {}
 
 /// An ASCII board (rank 8 at the top, white pieces in uppercase), then the FEN and key.
 impl fmt::Display for Position {

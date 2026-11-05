@@ -27,6 +27,11 @@ impl CastlingRights {
         self.0 & rights.0 == rights.0
     }
 
+    /// The rights in either set.
+    pub const fn union(self, other: CastlingRights) -> CastlingRights {
+        CastlingRights(self.0 | other.0)
+    }
+
     pub const fn is_empty(self) -> bool {
         self.0 == 0
     }

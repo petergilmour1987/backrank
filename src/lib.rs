@@ -2,9 +2,13 @@
 //!
 //! The engine core lives here; `src/main.rs` is a thin binary front end.
 
+pub mod attacks;
 pub mod board;
+pub mod movegen;
+pub mod perft;
 mod rng;
 pub mod types;
+pub mod uci;
 
 pub use board::{FenError, Position};
 pub use types::{Bitboard, CastlingRights, Color, File, Move, Piece, PieceType, Rank, Square};

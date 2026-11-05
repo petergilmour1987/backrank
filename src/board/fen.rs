@@ -74,6 +74,13 @@ impl Position {
 
         check_material(&pos)?;
         check_castling(&pos)?;
+        let them = !pos.side_to_move;
+        if pos.is_square_attacked(pos.king_square(them), pos.side_to_move) {
+            return Err(FenError::Illegal(format!(
+                "{them} is in check but it is {} to move",
+                pos.side_to_move
+            )));
+        }
         pos.en_passant = match en_passant {
             Some(sq) => usable_en_passant(&pos, sq)?,
             None => None,
@@ -189,6 +196,18 @@ fn check_material(pos: &Position) -> Result<(), FenError> {
                 "{color} has more than 16 pieces"
             )));
         }
+        // Every piece beyond the starting set must be a promoted pawn. This also keeps
+        // positions within the 256 moves a move list can hold.
+        let count = |kind| pos.pieces(Piece::new(color, kind)).count();
+        let promoted = count(PieceType::Queen).saturating_sub(1)
+            + count(PieceType::Rook).saturating_sub(2)
+            + count(PieceType::Bishop).saturating_sub(2)
+            + count(PieceType::Knight).saturating_sub(2);
+        if pawns.count() + promoted > 8 {
+            return Err(FenError::Illegal(format!(
+                "{color} has more extra pieces than pawns that could have promoted"
+            )));
+        }
         let back_ranks = Bitboard::rank(Rank::R1) | Bitboard::rank(Rank::R8);
         if let Some(sq) = (pawns & back_ranks).lsb() {
             return Err(FenError::Illegal(format!("{color} pawn on {sq}")));
@@ -270,14 +289,7 @@ fn usable_en_passant(pos: &Position, sq: Square) -> Result<Option<Square>, FenEr
             "{sq} and {origin} must be empty after a two-square pawn move"
         )));
     }
-    let file = sq.file().index();
-    let our_pawn = Some(Piece::new(us, PieceType::Pawn));
-    let can_capture = [file.checked_sub(1), Some(file + 1)]
-        .into_iter()
-        .flatten()
-        .filter_map(File::from_index)
-        .any(|f| pos.piece_at(Square::new(f, pawn_rank)) == our_pawn);
-    Ok(can_capture.then_some(sq))
+    Ok(pos.can_capture_en_passant(sq, us).then_some(sq))
 }
 
 #[cfg(test)]
@@ -488,6 +500,10 @@ mod tests {
             "4k2R/8/8/8/8/8/8/4K3 w k - 0 1",             // k right, white rook on h8
             "r3k2r/8/8/8/8/8/8/R2K3R w K - 0 1",          // K right, king not on e1
             "4k3/8/8/8/8/N7/NNNNNNNN/NNNNKNNN w - - 0 1", // 17 white pieces
+            "QQQQQQQQ/QQQQQQQ1/8/8/8/8/8/k3K3 w - - 0 1", // 15 queens
+            "4k3/8/8/8/8/8/PPPPPPPP/QQ2K3 w - - 0 1",     // 8 pawns and an extra queen
+            "4k3/8/8/8/8/8/4R3/4K3 w - - 0 1",            // black in check, white to move
+            "3kK3/8/8/8/8/8/8/8 w - - 0 1",               // kings next to each other
         ] {
             let result = Position::from_fen(fen);
             assert!(

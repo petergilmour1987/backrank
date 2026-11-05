@@ -199,8 +199,9 @@ cover this.
   behind a `OnceLock`.
 - `is_square_attacked`, pseudo-legal generation for every piece including castling
   (not out of, through or into check), en passant and promotions, plus `make`/`unmake`.
-- `perft`/`divide`, exposed as `backrank perft <depth> [fen]` and as the non-standard UCI
-  command `go perft <n>`. Its output format matches Stockfish's (`e2e4: 20` … `Nodes searched: N`).
+- `perft`/`divide`, exposed as `backrank perft <depth> [startpos | fen <FEN>] [moves …]`,
+  with output in Stockfish's format (`e2e4: 20` … `Nodes searched: N`). The non-standard UCI
+  command `go perft <n>` moves to Phase 3, which is where the UCI loop arrives.
 - **`cargo xtask perft-diff --fen <F> --depth <D>`** runs `go perft` on both Backrank and
   Stockfish and compares the counts for each move. On a mismatch it plays that move and
   recurses one ply shallower, ending with the exact position and the move that is missing
@@ -219,11 +220,29 @@ cover this.
 **Exit check:** the full perft suite in §7.2 passes. As a soft speed target, startpos
 perft 6 should take under about 5 s in release mode.
 
+**Done 2026-11-05:**
+- Every count in §7.2 matched on the first full run. Startpos perft 6 took 1.7 s (about
+  70 million nodes/s on the M4 Pro), and the whole deep suite runs in about 3 s as release
+  tests.
+- The make/unmake property test walks 280,000 positions at depth 3. At each one it checks
+  the invariants, checks the key against a rebuild from FEN, and checks that unmake
+  restores the position exactly.
+- `perft-diff` was tested by planting an en passant bug, which it traced to the exact
+  position and missing move.
+- The Phase 1 carry-overs are done: `from_fen` rejects positions where the side not to
+  move is in check, and FEN parsing and `make_move` share `can_capture_en_passant`.
+
 ### Phase 3 — UCI protocol (first playable engine)
 
 - Implement the threading model in §4.3 and the full command set in §7.1. A search stub
   plays a **random legal move**, so the protocol is complete before real search exists.
 - Non-standard debug commands: `d` (print the board, FEN and key) and `go perft`.
+- Carried over from the Phase 2 review:
+  - `main` already calls `attacks::init()` at startup, so the magic tables are never built
+    during a search. Keep it that way.
+  - `make_move` assumes a pseudo-legal move. Debug builds check the position after every
+    make/unmake, which makes debug-mode search slow. If Phase 5 tests suffer, gate that
+    check (for example behind a cargo feature).
 - FEN parsing is strict. If `position fen …` is rejected, report the error with `info string`
   and keep the previous position, so the engine never ends up with a half-applied position.
 - Integration tests in `tests/uci.rs` spawn the binary and check:
@@ -286,7 +305,11 @@ The ladder runs record how much each feature is worth.
    `depth`, `nodes` and `infinite` are all supported. The engine prints an `info` line
    after each iteration and always completes depth 1, so it always has a move.
 3. **Draw detection:** repetition (searching Zobrist keys back to the last irreversible
-   move), the 50-move rule, and insufficient material.
+   move), the 50-move rule, and insufficient material. The keys are already in
+   `Position`'s undo history (`Undo.key`); add an accessor or an `is_repetition` method there.
+   Any move not freshly generated in the current position, such as the PV move followed down
+   the tree, must pass an `is_pseudo_legal` check before `make_move` (the move-ordering
+   step needs this).
 4. **Quiescence search:** stand-pat plus captures and queen promotions.
 5. **Move ordering:** the PV move from the previous iteration first (triangular PV
    table), then captures ordered by MVV-LVA, then quiet moves.

@@ -139,6 +139,12 @@ impl Square {
         self.0 as usize
     }
 
+    /// The square `delta` index steps away (+8 is one rank up). Callers guarantee the
+    /// result is on the board.
+    pub(crate) const fn offset(self, delta: i8) -> Square {
+        Square::from_index_unchecked(self.0.wrapping_add_signed(delta))
+    }
+
     pub const fn file(self) -> File {
         File::ALL[(self.0 & 7) as usize]
     }
