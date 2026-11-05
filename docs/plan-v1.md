@@ -78,7 +78,7 @@ Our v1 is roughly Rustic Alpha 1 plus PV-move ordering and repetition detection.
 
 ```
 Cargo.toml              # workspace root + the `backrank` package
-.cargo/config.toml      # alias: xtask = "run --package xtask --release --"
+.cargo/config.toml      # alias: xtask = "run --quiet --package xtask --"
 src/
   main.rs               # CLI entry: no args → UCI loop; `perft`, `bench` subcommands
   lib.rs
@@ -158,17 +158,23 @@ Each phase ends with an exit check. Work on the next phase starts only after the
   - downloads `fastchess-mac-arm64.tar` (v1.8.2-alpha) into `tools/bin/`,
   - downloads and unzips `noob_3moves.epd` (balanced 3-move openings) from
     https://github.com/official-stockfish/books into `tools/books/`,
-  - copies the Homebrew `stockfish` binary to `tools/engines/stockfish-<version>` so that
-    a `brew upgrade` cannot silently change the opponent.
+  - copies the Homebrew `stockfish` binary to `tools/engines/stockfish` so that a
+    `brew upgrade` cannot silently change the opponent. Its version is read over UCI
+    (`id name`) whenever it is needed.
 - Add `cargo xtask smoke`: 20 games of Stockfish Skill 0 vs full-strength Stockfish
   through fastchess.
 - Add a GitHub Actions CI workflow on ubuntu: `fmt --check`, `clippy -D warnings`, `test`.
+  For now it is manual-only (`workflow_dispatch`) to save Actions minutes, and the checks
+  are run locally.
 - Add `tools/bin/`, `tools/books/`, `tools/engines/`, `results/pgn/` and `results/logs/`
   to `.gitignore`.
 
 **Exit check:** `cargo xtask setup && cargo xtask smoke` works, and full-strength Stockfish
 scores about 100%. This also confirms that options with spaces in their names, like
 `Skill Level`, reach Stockfish correctly.
+
+**Done 2026-11-05:** both downloads are pinned to a version or commit and checked by SHA-256.
+The smoke run scored 20/20 for full strength in 15 s, with every game ending normally.
 
 ### Phase 1 — Core types and position
 
@@ -242,6 +248,9 @@ illegal moves, crashes or disconnects.
   It is used to accept or reject each search or eval change from Phase 5 onward.
 - The stats module (Elo formula, confidence interval, LOS) gets unit tests against known
   values.
+- Carried over from the Phase 0 review: score each run from its own fresh PGN file, tally
+  results per opponent pair (`Tally::between`), and pass fastchess `-srand <seed>` (recorded
+  in the CSV) so a run's openings can be reproduced.
 
 **Exit check:** the random mover scores about 50% against the `random` rung (this checks
 the harness for bias) and about 0% against `sf-elo1320`. Both rows are recorded in
@@ -411,7 +420,7 @@ implement → cargo test (+ --release -- --ignored if movegen changed)
 
 | Item | Mitigation |
 |---|---|
-| fastchess passing option names with spaces (`option.Skill Level=0`) | Phase 0 smoke test. The xtask passes arguments directly through `std::process::Command`, so shell quoting is not involved. |
+| ~~fastchess passing option names with spaces (`option.Skill Level=0`)~~ | Resolved in Phase 0: fastchess splits each argument at its first `=`, and the smoke run confirmed that Skill 0 is applied. |
 | Exact fastchess flags (`-openings`, `-pgnout`, adjudication) in v1.8.2-alpha | Check against `man.md` when building the xtask, and pin the fastchess version in `setup`. |
 | `UCI_Elo` calibration basis (CCRL scale, time control) | Read the Stockfish 19 source. The estimates are labelled approximate either way. |
 | sfproxy rungs might not be evenly spaced | `xtask calibrate` measures them. Adjust *p* values if neighbouring rungs are too close. |

@@ -1,6 +1,13 @@
 # Rust build output
 /target/
 
+# Match tooling installed by `cargo xtask setup`, and match output
+/tools/bin/
+/tools/books/
+/tools/engines/
+/results/pgn/
+/results/logs/
+
 # Profiling / benchmarking artefacts
 *.profraw
 *.profdata

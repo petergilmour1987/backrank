@@ -6,11 +6,14 @@ library (the engine) and a binary (the front end that talks to GUIs / the user).
 ## Layout
 
 ```
-Cargo.toml          # single crate: [lib] + [[bin]], both named `backrank`
+Cargo.toml          # workspace root + the `backrank` package ([lib] + [[bin]], both `backrank`)
 src/lib.rs          # engine library — all chess logic belongs here
 src/main.rs         # thin binary; parses I/O and calls into the library
 tests/              # integration tests (create when needed)
 benches/            # benchmarks (create when needed)
+xtask/              # dev tooling crate, run as `cargo xtask <cmd>` (alias in .cargo/config.toml)
+tools/              # bin/, books/, engines/ are installed by `cargo xtask setup` (gitignored)
+results/            # pgn/ and logs/ hold match output (gitignored)
 docs/               # plans and design docs — v1 plan: docs/plan-v1.md
 ```
 
@@ -26,19 +29,27 @@ cargo run --release             # run the engine binary
 cargo test                      # all tests
 cargo test --release            # use for slow tests (e.g. deep perft)
 cargo fmt                       # format (config: rustfmt.toml)
-cargo clippy --all-targets -- -D warnings   # lint; must be clean
+cargo clippy --workspace --all-targets -- -D warnings   # lint; must be clean
 cargo build --profile profiling # release + debug symbols, for profilers/flamegraphs
+
+cargo xtask setup               # install fastchess, opening book, Stockfish snapshot into tools/
+cargo xtask smoke               # harness check: Stockfish Skill 0 vs full strength via fastchess
 ```
 
-Before declaring work done: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`
-and `cargo test` must all pass.
+Keep `README.md`'s usage guide current when commands or options are added or change.
+
+Before declaring work done: `cargo fmt --all --check`,
+`cargo clippy --workspace --all-targets -- -D warnings` and `cargo test --workspace` must all
+pass. Run them locally: the GitHub workflow is manual-only for now, to save Actions minutes.
+
+`xtask` may use crates (clap, anyhow, sha2); the `backrank` crate itself is std-only.
 
 ## Conventions
 
 - Rust edition 2024, stable toolchain (`rust-toolchain.toml`).
 - No `unsafe` unless a measured performance win justifies it; document the invariant
   with a `// SAFETY:` comment.
-- No new dependencies without a clear reason — the engine core should stay dependency-light.
+- The `backrank` crate uses only the standard library; tooling dependencies go in `xtask`.
 - Correctness before speed: move generation must be validated with perft against known
   node counts before optimising it.
 - Performance-sensitive code: prefer fixed-size types and avoid heap allocation in the
@@ -55,6 +66,6 @@ and `cargo test` must all pass.
 
 ## Status
 
-Project scaffold only — no engine code yet. The v1 roadmap (phases, decisions,
+Phase 0 (workspace, xtask setup/smoke, manual-only CI workflow) is done; no engine code yet. The v1 roadmap (phases, decisions,
 Stockfish ladder, UCI spec, perft suite) is in `docs/plan-v1.md`; follow its phase order
 and exit checks.

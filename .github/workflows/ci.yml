@@ -1,0 +1,24 @@
+name: CI
+
+# Disabled to save Actions minutes: runs only when started by hand from the Actions tab
+# (or `gh workflow run CI`). To re-enable on every push and PR, replace this trigger with:
+#   push:
+#     branches: [main]
+#   pull_request:
+on:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      # rustup installs the toolchain and components pinned in rust-toolchain.toml.
+      - run: rustup show
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --all --check
+      - run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - run: cargo test --locked --workspace
