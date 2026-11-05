@@ -308,6 +308,42 @@ illegal moves, crashes or disconnects.
 the harness for bias) and about 0% against `sf-elo1320`. Both rows are recorded in
 `results/ladder.csv`.
 
+**Done 2026-11-05:**
+- Random mover vs `random`: 48.5% (Elo -10 [-27, +7]) in 8 s. A 2,000-game bias check
+  gave 49.9% (Elo -1 [-7, +5]): the harness is unbiased.
+- Random mover vs `sf-elo1320`: 0/240 in about 4 minutes. That makes the random mover
+  rated at most 561 (rule-of-three bound).
+- All three rows are in `results/ladder.csv`.
+- `sprt --base HEAD`, the random mover against itself, accepted H0 after 4,489 games in
+  75 s.
+- `calibrate` was checked with short runs, then discarded; the real calibration is still
+  to do.
+- Stockfish 19's source confirms the `UCI_Elo` scale: it was fitted to games against the
+  Stash engine, and Skill 0..19 covers roughly CCRL Blitz 1320–3190.
+- Changes from the original design:
+  - `sfproxy` uses Backrank's own perft-verified move generator for its random moves,
+    instead of Stockfish's `go perft 1`. Before playing a move itself, it syncs with
+    Stockfish via `isready`, so replies stay in order.
+  - It is built with a new `tools` cargo profile (release without fat LTO).
+  - Calibrated ratings live in `results/calibration.toml`, so the hand-written
+    `tools/ladder.toml` stays free of generated data.
+  - A rung isn't passed if Backrank lost any game by time forfeit, illegal move or crash.
+- The Phase 0 carry-overs are done: each run uses a fresh PGN, results are tallied per
+  opponent pair (`Tally::between`), and the `-srand` seed is recorded in the CSV.
+- Fixed from the Phase 4 review:
+  - The opponent's faults, an incomplete match or a non-standard time control now block
+    promotion, and the opponent's faults are recorded.
+  - Whitewashes use rule-of-three 95% bounds instead of a point estimate, and calibrate
+    only carries a bound down the chain in its own direction.
+  - A calibrated rating is ignored if the rung's blunder value has changed, with warnings
+    for a different Stockfish, time control or neighbour rating.
+  - Dirty builds are labelled `<sha>-dirty-<hash of the diff>`, and snapshots and state
+    files are written atomically.
+  - `sprt` checks that both engines answer UCI, and records faults and the seed.
+  - `sfproxy` keeps a queue of who sent each request, hides `Skill Level`, logs when it
+    can't follow the position, and reports Stockfish's real depth-1 score with its random
+    moves. So fastchess logs only Stockfish's own Skill Level warnings.
+
 ### Phase 5 — Search and evaluation
 
 Each step lands with its own tests, an SPRT against the previous step, and a ladder run.
@@ -488,7 +524,7 @@ implement → cargo test (+ --release -- --ignored if movegen changed)
 |---|---|
 | ~~fastchess passing option names with spaces (`option.Skill Level=0`)~~ | Resolved in Phase 0: fastchess splits each argument at its first `=`, and the smoke run confirmed that Skill 0 is applied. |
 | Exact fastchess flags (`-openings`, `-pgnout`, adjudication) in v1.8.2-alpha | Check against `man.md` when building the xtask, and pin the fastchess version in `setup`. |
-| `UCI_Elo` calibration basis (CCRL scale, time control) | Read the Stockfish 19 source. The estimates are labelled approximate either way. |
+| ~~`UCI_Elo` calibration basis (CCRL scale, time control)~~ | Resolved in Phase 4: Stockfish 19's `search.h` says Skill 0..19 covers roughly CCRL Blitz 1320–3190, fitted to games against the Stash engine. Estimates at our faster time control are still approximate. |
 | sfproxy rungs might not be evenly spaced | `xtask calibrate` measures them. Adjust *p* values if neighbouring rungs are too close. |
 | Noise from the M4 Pro's mixed performance and efficiency cores | Default concurrency 8, below the performance-core count. Both engines in a game share the same conditions. |
 | A Stockfish upgrade changes the opponent | Use a snapshot binary in `tools/engines/`, and record the Stockfish version in every CSV row. |

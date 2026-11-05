@@ -1,0 +1,2 @@
+date,new,base,tc,elo0,elo1,alpha,beta,games,wins,draws,losses,elo,elo_low,elo_high,new_faults,base_faults,seed,result
+2026-11-05 15:06:58,b9ebbe1-dirty-2be884f8,b9ebbe1,8+0.08,0,10,0.05,0.05,4489,320,3834,335,-1.2,-5.0,2.7,0,0,2528109635177259729,H0 accepted

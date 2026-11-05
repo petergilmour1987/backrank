@@ -32,3 +32,11 @@ debug = false
 [profile.profiling]
 inherits = "release"
 debug = true
+
+# Optimised build for dev tooling that runs during matches (such as sfproxy), without the
+# slow whole-program optimisation of the release profile.
+[profile.tools]
+inherits = "release"
+lto = false
+codegen-units = 16
+panic = "unwind"

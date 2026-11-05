@@ -44,3 +44,28 @@ pub fn book() -> PathBuf {
 pub fn stockfish() -> PathBuf {
     engines().join("stockfish")
 }
+
+/// The ladder's rung definitions (committed).
+pub fn ladder() -> PathBuf {
+    root().join("tools/ladder.toml")
+}
+
+/// The rung Backrank is currently on (committed).
+pub fn ladder_state() -> PathBuf {
+    root().join("results/state.toml")
+}
+
+/// Ratings measured by `cargo xtask calibrate` (committed).
+pub fn calibration() -> PathBuf {
+    root().join("results/calibration.toml")
+}
+
+/// One row per ladder run: Backrank's progress history (committed).
+pub fn ladder_csv() -> PathBuf {
+    root().join("results/ladder.csv")
+}
+
+/// One row per SPRT run (committed).
+pub fn sprt_csv() -> PathBuf {
+    root().join("results/sprt.csv")
+}

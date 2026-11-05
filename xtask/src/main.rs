@@ -1,13 +1,17 @@
 //! Development tooling for Backrank, run as `cargo xtask <command>`.
 
+mod calibrate;
 mod engine;
 mod fastchess;
+mod ladder;
 mod paths;
 mod perft_diff;
 mod pgn;
 mod selfplay;
 mod setup;
 mod smoke;
+mod sprt;
+mod stats;
 mod time;
 
 use anyhow::Result;
@@ -35,6 +39,13 @@ enum Command {
     PerftDiff(perft_diff::Args),
     /// Play Backrank against itself and fail on any crash, illegal move or time forfeit.
     Selfplay(selfplay::Args),
+    /// Play Backrank against its rung of the Stockfish ladder and record the result.
+    Ladder(ladder::Args),
+    /// Measure ratings for the ladder rungs below Stockfish's weakest rated setting.
+    Calibrate(calibrate::Args),
+    /// Test whether the working tree beats an earlier commit (sequential probability
+    /// ratio test).
+    Sprt(sprt::Args),
 }
 
 fn main() -> Result<()> {
@@ -43,5 +54,8 @@ fn main() -> Result<()> {
         Command::Smoke(args) => smoke::run(&args),
         Command::PerftDiff(args) => perft_diff::run(&args),
         Command::Selfplay(args) => selfplay::run(&args),
+        Command::Ladder(args) => ladder::run(&args),
+        Command::Calibrate(args) => calibrate::run(&args),
+        Command::Sprt(args) => sprt::run(&args),
     }
 }

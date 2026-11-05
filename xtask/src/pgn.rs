@@ -92,28 +92,79 @@ pub struct Tally {
     /// Games that ended for a reason that points at a bug or an infrastructure problem
     /// (anything other than `normal` or `adjudication`), counted by termination.
     pub abnormal: BTreeMap<String, u32>,
+    /// The abnormal games this engine lost: its own time forfeits, illegal moves and
+    /// crashes, counted by termination.
+    pub own_faults: BTreeMap<String, u32>,
+    /// The abnormal games this engine won: the opponent's faults. These wins say nothing
+    /// about strength.
+    pub opponent_faults: BTreeMap<String, u32>,
 }
 
 impl Tally {
     /// Tallies every game `engine` played in.
     pub fn for_engine(games: &[Game], engine: &str) -> Tally {
+        Tally::of(
+            games
+                .iter()
+                .filter(|g| g.white == engine || g.black == engine),
+            engine,
+        )
+    }
+
+    /// Tallies the games between `engine` and `opponent`, from `engine`'s point of view.
+    pub fn between(games: &[Game], engine: &str, opponent: &str) -> Tally {
+        Tally::of(
+            games.iter().filter(|g| {
+                (g.white == engine && g.black == opponent)
+                    || (g.white == opponent && g.black == engine)
+            }),
+            engine,
+        )
+    }
+
+    fn of<'a>(games: impl Iterator<Item = &'a Game>, engine: &str) -> Tally {
         let mut tally = Tally::default();
         for game in games {
             let as_white = game.white == engine;
-            if !as_white && game.black != engine {
-                continue;
-            }
-            match (game.outcome, as_white) {
-                (Outcome::WhiteWins, true) | (Outcome::BlackWins, false) => tally.wins += 1,
-                (Outcome::WhiteWins, false) | (Outcome::BlackWins, true) => tally.losses += 1,
-                (Outcome::Draw, _) => tally.draws += 1,
-                (Outcome::Unfinished, _) => tally.unfinished += 1,
-            }
+            // Some(true) for a win, Some(false) for a loss, None otherwise.
+            let won = match (game.outcome, as_white) {
+                (Outcome::WhiteWins, true) | (Outcome::BlackWins, false) => {
+                    tally.wins += 1;
+                    Some(true)
+                }
+                (Outcome::WhiteWins, false) | (Outcome::BlackWins, true) => {
+                    tally.losses += 1;
+                    Some(false)
+                }
+                (Outcome::Draw, _) => {
+                    tally.draws += 1;
+                    None
+                }
+                (Outcome::Unfinished, _) => {
+                    tally.unfinished += 1;
+                    None
+                }
+            };
             if !matches!(game.termination.as_str(), "normal" | "adjudication") {
-                *tally.abnormal.entry(game.termination.clone()).or_default() += 1;
+                let kind = game.termination.clone();
+                *tally.abnormal.entry(kind.clone()).or_default() += 1;
+                match won {
+                    Some(false) => *tally.own_faults.entry(kind).or_default() += 1,
+                    Some(true) => *tally.opponent_faults.entry(kind).or_default() += 1,
+                    None => {}
+                }
             }
         }
         tally
+    }
+
+    /// The wins, draws and losses, for statistics.
+    pub fn record(&self) -> crate::stats::Record {
+        crate::stats::Record {
+            wins: self.wins,
+            draws: self.draws,
+            losses: self.losses,
+        }
     }
 
     /// Finished games.
@@ -177,6 +228,26 @@ mod tests {
         assert_eq!(tally.abnormal.get("time forfeit"), Some(&1));
         assert_eq!(tally.abnormal.len(), 1);
         assert!((tally.score() - 0.5).abs() < 1e-9);
+        // sf-full lost the time forfeit, so it's sf-full's fault, not sf-skill0's.
+        assert_eq!(tally.own_faults.get("time forfeit"), Some(&1));
+        assert!(tally.opponent_faults.is_empty());
+        let other = Tally::for_engine(&games, "sf-skill0");
+        assert!(other.own_faults.is_empty());
+        assert_eq!(other.opponent_faults.get("time forfeit"), Some(&1));
+    }
+
+    #[test]
+    fn tallies_only_the_named_pairing() {
+        let mut games = parse(SAMPLE).unwrap();
+        games.push(Game {
+            white: "sf-full".into(),
+            black: "someone-else".into(),
+            outcome: Outcome::WhiteWins,
+            termination: "normal".into(),
+        });
+        assert_eq!(Tally::for_engine(&games, "sf-full").games(), 4);
+        let pair = Tally::between(&games, "sf-full", "sf-skill0");
+        assert_eq!((pair.wins, pair.draws, pair.losses), (1, 1, 1));
     }
 
     #[test]

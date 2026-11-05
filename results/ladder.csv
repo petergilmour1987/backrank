@@ -1,0 +1,4 @@
+date,commit,bench_nodes,rung,rung_rating,rung_bound,stockfish,tc,games,wins,draws,losses,unfinished,score_pct,elo,elo_low,elo_high,los_pct,est_rating,est_low,est_high,time_forfeits,illegal_moves,crashes,opponent_faults,seed,outcome,note
+2026-11-05 15:00:34,b9ebbe1-dirty-2be884f8,,random,,,Stockfish 19,8+0.08,240,14,205,21,0,48.5,-10,-27,7,11.8,,,,0,0,0,0,5373168398635749492,stayed,Phase 4 exit check: random mover
+2026-11-05 15:01:27,b9ebbe1-dirty-2be884f8,,random,,,Stockfish 19,8+0.08,2000,139,1717,144,0,49.9,-1,-7,5,38.3,,,,0,0,0,0,2834972570100151523,stayed,"Phase 4 harness bias check: random mover, 2000 games"
+2026-11-05 15:05:42,b9ebbe1-dirty-2be884f8,,sf-elo1320,1320,exact,Stockfish 19,8+0.08,240,0,0,240,0,0.0,,,-759,0.0,,,561,0,0,0,0,3135306369842178872,checked,Phase 4 exit check: random mover

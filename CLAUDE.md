@@ -19,8 +19,11 @@ src/main.rs         # thin binary; parses I/O and calls into the library
 tests/              # integration tests: perft.rs (deep depths #[ignore]d), uci.rs (runs the binary)
 benches/            # benchmarks (create when needed)
 xtask/              # dev tooling crate, run as `cargo xtask <cmd>` (alias in .cargo/config.toml)
+xtask/src/bin/sfproxy.rs  # Stockfish Skill 0 that plays random moves with probability p
+tools/ladder.toml   # the Stockfish difficulty ladder (committed)
 tools/              # bin/, books/, engines/ are installed by `cargo xtask setup` (gitignored)
-results/            # pgn/ and logs/ hold match output (gitignored)
+results/            # ladder.csv, sprt.csv, state.toml, calibration.toml are committed history;
+                    # pgn/ and logs/ hold match output (gitignored)
 docs/               # plans and design docs — v1 plan: docs/plan-v1.md
 ```
 
@@ -43,6 +46,9 @@ cargo xtask setup               # install fastchess, opening book, Stockfish sna
 cargo xtask smoke               # harness check: Stockfish Skill 0 vs full strength via fastchess
 cargo xtask perft-diff --depth N [--fen F]   # compare perft with Stockfish, find the bad move
 cargo xtask selfplay            # Backrank vs itself; fails on any crash/illegal move/time loss
+cargo xtask ladder [--climb] [--note "..."]  # play the current ladder rung, record in results/
+cargo xtask sprt [--base REF]   # does the working tree beat REF? (SPRT, default [0, 10])
+cargo xtask calibrate           # rate the blunder rungs below sf-elo1320 (1 to 1.5 hours)
 cargo run --release -- perft N [startpos | fen F] [moves ...]  # perft split by first move
 ```
 
@@ -77,8 +83,10 @@ pass. Run them locally: the GitHub workflow is manual-only for now, to save Acti
 ## Status
 
 Phases 0 (tooling), 1 (core types, `Position`, FEN, Zobrist), 2 (move generation,
-make/unmake, perft) and 3 (UCI protocol, random-move player) are done; next is Phase 4
-(Stockfish ladder harness). After changing move
+make/unmake, perft), 3 (UCI protocol, random-move player) and 4 (Stockfish ladder harness)
+are done; next is Phase 5 (search and evaluation). From Phase 5 on, follow the development
+loop in plan §8: tests, then `cargo xtask sprt`, then `cargo xtask ladder --note ...`, then
+commit the code together with the new `results/` rows. After changing move
 generation or make/unmake, also run `cargo test --release --test perft -- --ignored`, and
 use `cargo xtask perft-diff` to localise any mismatch. The v1 roadmap (phases, decisions,
 Stockfish ladder, UCI spec, perft suite) is in `docs/plan-v1.md`; follow its phase order

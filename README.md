@@ -148,6 +148,83 @@ least 90% and every game ends normally (no time forfeits, crashes or illegal mov
 Each run saves its games to `results/pgn/` and the fastchess log to `results/logs/`. Both
 directories are gitignored.
 
+### The Stockfish ladder
+
+Backrank's strength is measured by playing it against a ladder of ever-stronger
+opponents, defined in [`tools/ladder.toml`](tools/ladder.toml):
+
+| Rungs | Opponent |
+|---|---|
+| `random` | A pure random mover. |
+| `blunder80` … `blunder10` | Stockfish at Skill Level 0, playing a random legal move instead 80% … 10% of the time (via the `sfproxy` helper). |
+| `sf-elo1320` … `sf-elo3190` | Stockfish with `UCI_LimitStrength`. Its scale is roughly CCRL Blitz rating. |
+| `sf-full` | Stockfish at full strength. |
+
+```sh
+cargo xtask ladder                      # play the current rung
+cargo xtask ladder --climb              # keep going up while rungs are passed
+cargo xtask ladder --rung sf-elo1500    # check a particular rung
+cargo xtask ladder --note "add quiescence search"
+```
+
+A run plays 240 games at 8+0.08 (about 10 minutes against Stockfish). It prints the score,
+the Elo difference with a 95% confidence interval, and the likelihood of superiority
+(LOS). Against a rung with a rating, it also prints an estimated rating for Backrank.
+
+Every run adds a row to [`results/ladder.csv`](results/ladder.csv), Backrank's progress
+history. Backrank moves up a rung (recorded in `results/state.toml`) after scoring at
+least 60% over at least 200 games on its current rung, with no time forfeits, illegal
+moves or crashes of its own. Scoring below 40% on a rung it passed before prints a
+regression warning. Backrank is never moved down automatically.
+
+Before each run, Backrank is built and copied to `tools/engines/backrank-<commit>`, so
+rebuilding during a run doesn't affect it.
+
+| Option | Default | Effect |
+|---|---|---|
+| `--rung <name>` | current rung | Play a different rung. Only the current rung can promote. |
+| `--climb` | off | After moving up, play the next rung too, until one isn't passed. |
+| `--games <n>` | `240` | Number of games. Must be even. |
+| `--tc <tc>` | `8+0.08` | Time control as seconds+increment. |
+| `--concurrency <n>` | `8` | Games played at the same time. |
+| `--seed <n>` | random | Opening order seed. Recorded in the CSV, so a run can be repeated. |
+| `--note <text>` | none | Recorded in the CSV. |
+
+### Calibrating the bottom rungs
+
+```sh
+cargo xtask calibrate                   # all blunder rungs, strongest first (1 to 1.5 hours)
+cargo xtask calibrate --rung blunder10  # just one
+```
+
+The blunder rungs have no rating of their own. `calibrate` works down from `sf-elo1320`:
+each rung plays its stronger neighbour, and its rating is that neighbour's rating plus the
+measured difference. If a rung loses or wins every game, the gap can't be measured, so
+its rating is recorded only as a bound and a warning suggests changing the blunder
+values. Results go to [`results/calibration.toml`](results/calibration.toml). It takes
+`--games`, `--tc` and `--concurrency` like `ladder`.
+
+### Did a change help? (SPRT)
+
+```sh
+cargo xtask sprt                        # working tree vs HEAD
+cargo xtask sprt --base HEAD~1          # vs any commit, tag or branch
+```
+
+This plays the working tree against an earlier version, using fastchess's sequential
+probability ratio test. The test stops as soon as the result is clear: "H1 accepted"
+means the change gains at least `--elo1`, and "H0 accepted" means it gains no more than
+`--elo0`. The base version is built in a temporary git worktree, and the build is kept for
+the next run. Results are added to `results/sprt.csv`.
+
+| Option | Default | Effect |
+|---|---|---|
+| `--base <ref>` | `HEAD` | The version to compare against. |
+| `--elo0`, `--elo1` | `0`, `10` | The two hypotheses, in normalized Elo. |
+| `--alpha`, `--beta` | `0.05` | Error rates. |
+| `--tc <tc>` | `8+0.08` | Time control. |
+| `--max-games <n>` | `20000` | Give up without a verdict after this many games. |
+
 ### Self-play stress test
 
 ```sh
@@ -195,7 +272,7 @@ found.
 src/             the engine: library (all chess logic) and a thin binary
 tests/           integration tests (perft suite)
 xtask/           development tooling behind `cargo xtask`
-tools/           installed match tooling (gitignored, created by setup)
-results/         match output (pgn/ and logs/ are gitignored)
+tools/           ladder.toml, plus installed match tooling (bin/, books/, engines/ are gitignored)
+results/         ladder and SPRT history (committed); pgn/ and logs/ hold match output (gitignored)
 docs/            plans and design docs
 ```

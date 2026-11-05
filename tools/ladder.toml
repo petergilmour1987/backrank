@@ -1,0 +1,100 @@
+# The Stockfish difficulty ladder used by `cargo xtask ladder` (see docs/plan-v1.md §6).
+#
+# Rungs are ordered from easiest to hardest. Each rung is one of:
+#   blunder = p    sfproxy: Stockfish at Skill Level 0 that plays a random legal move
+#                  with probability p instead (p = 1 is a pure random mover)
+#   uci_elo = N    Stockfish with UCI_LimitStrength, roughly CCRL Blitz rating N
+#                  (Stockfish 19 supports 1320 to 3190)
+#   (neither)      full-strength Stockfish
+# Ratings of the blunder rungs are measured by `cargo xtask calibrate`.
+
+[defaults]
+tc = "8+0.08"          # seconds + increment per move
+games = 240            # per run; even, since each opening is played from both sides
+concurrency = 8        # games at once; stays below the M4 Pro's performance-core count
+promote_at = 0.60      # score needed to move up a rung (about +70 Elo)
+min_games = 200        # fewer games than this never promote
+regression_below = 0.40  # warn if a previously passed rung scores below this
+
+[[rung]]
+name = "random"
+blunder = 1.0
+
+[[rung]]
+name = "blunder80"
+blunder = 0.8
+
+[[rung]]
+name = "blunder60"
+blunder = 0.6
+
+[[rung]]
+name = "blunder40"
+blunder = 0.4
+
+[[rung]]
+name = "blunder25"
+blunder = 0.25
+
+[[rung]]
+name = "blunder10"
+blunder = 0.1
+
+[[rung]]
+name = "sf-elo1320"
+uci_elo = 1320
+
+[[rung]]
+name = "sf-elo1400"
+uci_elo = 1400
+
+[[rung]]
+name = "sf-elo1500"
+uci_elo = 1500
+
+[[rung]]
+name = "sf-elo1600"
+uci_elo = 1600
+
+[[rung]]
+name = "sf-elo1700"
+uci_elo = 1700
+
+[[rung]]
+name = "sf-elo1800"
+uci_elo = 1800
+
+[[rung]]
+name = "sf-elo1900"
+uci_elo = 1900
+
+[[rung]]
+name = "sf-elo2000"
+uci_elo = 2000
+
+[[rung]]
+name = "sf-elo2200"
+uci_elo = 2200
+
+[[rung]]
+name = "sf-elo2400"
+uci_elo = 2400
+
+[[rung]]
+name = "sf-elo2600"
+uci_elo = 2600
+
+[[rung]]
+name = "sf-elo2800"
+uci_elo = 2800
+
+[[rung]]
+name = "sf-elo3000"
+uci_elo = 3000
+
+[[rung]]
+name = "sf-elo3190"
+uci_elo = 3190
+
+[[rung]]
+name = "sf-full"

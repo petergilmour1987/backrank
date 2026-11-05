@@ -56,6 +56,8 @@ pub fn run(args: &Args) -> Result<()> {
         book: &paths::book(),
         pgn_out: &pgn_path,
         log: &log_path,
+        seed: None,
+        sprt: None,
     }
     .run()?;
 

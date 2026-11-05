@@ -4,15 +4,19 @@
 //! contain spaces, such as `Skill Level`, need no quoting. fastchess splits each
 //! `key=value` argument at its first `=`.
 
-use crate::paths;
+use crate::{paths, pgn};
 use anyhow::{Context, Result, bail};
+use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 /// One engine in a match.
 pub struct EngineSpec {
     pub name: String,
     pub cmd: PathBuf,
+    /// Command-line arguments for the engine. fastchess splits them on spaces, so none may
+    /// contain one.
+    pub args: Vec<String>,
     /// UCI options sent with `setoption`, in order.
     pub options: Vec<(String, String)>,
 }
@@ -22,8 +26,14 @@ impl EngineSpec {
         Self {
             name: name.into(),
             cmd: cmd.into(),
+            args: Vec::new(),
             options: Vec::new(),
         }
+    }
+
+    pub fn arg(mut self, arg: impl Into<String>) -> Self {
+        self.args.push(arg.into());
+        self
     }
 
     pub fn option(mut self, name: &str, value: &str) -> Self {
@@ -35,10 +45,21 @@ impl EngineSpec {
         args.push("-engine".into());
         args.push(format!("cmd={}", self.cmd.display()));
         args.push(format!("name={}", self.name));
+        if !self.args.is_empty() {
+            args.push(format!("args={}", self.args.join(" ")));
+        }
         for (name, value) in &self.options {
             args.push(format!("option.{name}={value}"));
         }
     }
+}
+
+/// Sequential probability ratio test bounds, in normalized Elo (fastchess's default model).
+pub struct Sprt {
+    pub elo0: f64,
+    pub elo1: f64,
+    pub alpha: f64,
+    pub beta: f64,
 }
 
 /// A two-engine match. Every opening is played twice with colours swapped.
@@ -52,6 +73,10 @@ pub struct Match<'a> {
     pub book: &'a Path,
     pub pgn_out: &'a Path,
     pub log: &'a Path,
+    /// Seed for the random opening order, so a run can be repeated exactly.
+    pub seed: Option<u64>,
+    /// Stop as soon as this test reaches a verdict, instead of after `rounds`.
+    pub sprt: Option<Sprt>,
 }
 
 impl Match<'_> {
@@ -85,24 +110,57 @@ impl Match<'_> {
             "-autosaveinterval".into(),
             "0".into(),
         ]);
+        if let Some(seed) = self.seed {
+            args.extend(["-srand".into(), seed.to_string()]);
+        }
+        if let Some(sprt) = &self.sprt {
+            args.extend([
+                "-sprt".into(),
+                format!("elo0={}", sprt.elo0),
+                format!("elo1={}", sprt.elo1),
+                format!("alpha={}", sprt.alpha),
+                format!("beta={}", sprt.beta),
+            ]);
+        }
         args
     }
 
     /// Runs fastchess with its output streamed to the terminal.
     pub fn run(&self) -> Result<()> {
+        self.run_capturing().map(|_| ())
+    }
+
+    /// Runs fastchess, streaming its output to the terminal, and returns that output.
+    pub fn run_capturing(&self) -> Result<String> {
         let fastchess = paths::fastchess();
         let logs = paths::results_logs();
         std::fs::create_dir_all(&logs)?;
         std::fs::create_dir_all(paths::results_pgn())?;
-        let status = Command::new(&fastchess)
+        let mut child = Command::new(&fastchess)
             .args(self.args())
             .current_dir(&logs)
-            .status()
+            .stdout(Stdio::piped())
+            .spawn()
             .with_context(|| format!("failed to start {}", fastchess.display()))?;
+        let mut output = String::new();
+        for line in BufReader::new(child.stdout.take().expect("stdout is piped")).lines() {
+            let line = line?;
+            println!("{line}");
+            output.push_str(&line);
+            output.push('\n');
+        }
+        let status = child.wait()?;
         if !status.success() {
             bail!("fastchess exited with {status}; see {}", self.log.display());
         }
-        Ok(())
+        Ok(output)
+    }
+
+    /// Reads back the games this match wrote, tallied for `engine` against `opponent`.
+    pub fn tally(&self, engine: &str, opponent: &str) -> Result<pgn::Tally> {
+        let text = std::fs::read_to_string(self.pgn_out)
+            .with_context(|| format!("fastchess wrote no PGN at {}", self.pgn_out.display()))?;
+        Ok(pgn::Tally::between(&pgn::parse(&text)?, engine, opponent))
     }
 }
 
@@ -123,6 +181,8 @@ mod tests {
             book: Path::new("/book.epd"),
             pgn_out: Path::new("/out.pgn"),
             log: Path::new("/log.txt"),
+            seed: Some(7),
+            sprt: None,
         };
         let args = m.args();
         let expected_start = [
@@ -140,5 +200,45 @@ mod tests {
         let joined = args.join(" ");
         assert!(joined.contains("-rounds 10 -repeat -concurrency 4"));
         assert!(joined.contains("-openings file=/book.epd format=epd order=random"));
+        assert!(joined.ends_with("-srand 7"));
+    }
+
+    #[test]
+    fn engine_arguments_and_sprt() {
+        let mut args = Vec::new();
+        EngineSpec::new("proxy", "/bin/sfproxy")
+            .arg("--blunder")
+            .arg("0.5")
+            .push_args(&mut args);
+        assert_eq!(
+            args,
+            [
+                "-engine",
+                "cmd=/bin/sfproxy",
+                "name=proxy",
+                "args=--blunder 0.5"
+            ]
+        );
+        let m = Match {
+            engines: [EngineSpec::new("a", "/a"), EngineSpec::new("b", "/b")],
+            tc: "8+0.08",
+            rounds: 100,
+            concurrency: 8,
+            book: Path::new("/book.epd"),
+            pgn_out: Path::new("/out.pgn"),
+            log: Path::new("/log.txt"),
+            seed: None,
+            sprt: Some(Sprt {
+                elo0: 0.0,
+                elo1: 10.0,
+                alpha: 0.05,
+                beta: 0.05,
+            }),
+        };
+        assert!(
+            m.args()
+                .join(" ")
+                .ends_with("-sprt elo0=0 elo1=10 alpha=0.05 beta=0.05")
+        );
     }
 }
