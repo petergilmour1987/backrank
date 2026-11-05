@@ -76,7 +76,8 @@ fn send(line: impl Display) {
     let _ = out.flush();
 }
 
-/// An `info` line: `info depth D score (cp X | mate N) nodes N nps N time T [pv ...]`.
+/// An `info` line:
+/// `info depth D seldepth S score (cp X | mate N) nodes N nps N time T [pv ...]`.
 fn format_info(info: &Info) -> String {
     let score = match info.score {
         Score::Centipawns(cp) => format!("cp {cp}"),
@@ -85,8 +86,8 @@ fn format_info(info: &Info) -> String {
     let ms = info.time.as_millis();
     let nps = u128::from(info.nodes) * 1000 / ms.max(1);
     let mut line = format!(
-        "info depth {} score {score} nodes {} nps {nps} time {ms}",
-        info.depth, info.nodes
+        "info depth {} seldepth {} score {score} nodes {} nps {nps} time {ms}",
+        info.depth, info.seldepth, info.nodes
     );
     if !info.pv.is_empty() {
         line.push_str(" pv");
@@ -332,6 +333,7 @@ mod tests {
     fn formats_info_lines() {
         let info = Info {
             depth: 3,
+            seldepth: 5,
             score: Score::Centipawns(-25),
             nodes: 5000,
             time: Duration::from_millis(250),
@@ -342,10 +344,11 @@ mod tests {
         };
         assert_eq!(
             format_info(&info),
-            "info depth 3 score cp -25 nodes 5000 nps 20000 time 250 pv e2e3 e7e6"
+            "info depth 3 seldepth 5 score cp -25 nodes 5000 nps 20000 time 250 pv e2e3 e7e6"
         );
         let mated = Info {
             depth: 0,
+            seldepth: 0,
             score: Score::Mate(0),
             nodes: 0,
             time: Duration::ZERO,
@@ -353,7 +356,7 @@ mod tests {
         };
         assert_eq!(
             format_info(&mated),
-            "info depth 0 score mate 0 nodes 0 nps 0 time 0"
+            "info depth 0 seldepth 0 score mate 0 nodes 0 nps 0 time 0"
         );
     }
 }

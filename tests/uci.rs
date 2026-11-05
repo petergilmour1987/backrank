@@ -232,8 +232,9 @@ fn reports_an_info_line_with_a_score_before_bestmove() {
         info.contains(" score cp ") && info.contains(" depth "),
         "{info}"
     );
-    let pv_move = info.split(" pv ").nth(1).unwrap();
-    assert_eq!(pv_move, bestmove_of(lines.last().unwrap()));
+    let pv = info.split(" pv ").nth(1).unwrap();
+    let first = pv.split_whitespace().next().unwrap();
+    assert_eq!(first, bestmove_of(lines.last().unwrap()));
 }
 
 #[test]
