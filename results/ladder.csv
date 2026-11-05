@@ -14,3 +14,5 @@ date,commit,bench_nodes,rung,rung_rating,rung_bound,stockfish,tc,games,wins,draw
 2026-11-05 19:30:48,47cf1f7,,sf-elo1320,1320,exact,Stockfish 19,8+0.08,240,178,8,54,0,75.8,199,152,253,100.0,1519,1472,1573,0,0,0,0,550478718075609946,promoted to sf-elo1400,Phase 5.4/5.5: quiescence + move ordering
 2026-11-05 19:41:14,47cf1f7,,sf-elo1400,1400,exact,Stockfish 19,8+0.08,240,185,3,52,0,77.7,217,168,275,100.0,1617,1568,1675,0,0,0,0,8863053852675484834,promoted to sf-elo1500,Phase 5.4/5.5: quiescence + move ordering
 2026-11-05 19:52:10,47cf1f7,,sf-elo1500,1500,exact,Stockfish 19,8+0.08,240,121,10,109,0,52.5,17,-26,61,78.6,1517,1474,1561,0,0,0,0,8722780460930021679,stayed,Phase 5.4/5.5: quiescence + move ordering
+2026-11-05 20:18:21,61742b9,,sf-elo1500,1500,exact,Stockfish 19,8+0.08,240,144,14,82,0,62.9,92,49,138,100.0,1592,1549,1638,0,0,0,0,241397858839746977,promoted to sf-elo1600,Phase 5.6: check extension
+2026-11-05 20:30:18,61742b9,,sf-elo1600,1600,exact,Stockfish 19,8+0.08,240,104,9,127,0,45.2,-33,-77,10,6.5,1567,1523,1610,0,0,0,1,4507911987025144154,stayed (opponent faults),Phase 5.6: check extension
