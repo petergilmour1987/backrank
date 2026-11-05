@@ -16,3 +16,8 @@ date,commit,bench_nodes,rung,rung_rating,rung_bound,stockfish,tc,games,wins,draw
 2026-11-05 19:52:10,47cf1f7,,sf-elo1500,1500,exact,Stockfish 19,8+0.08,240,121,10,109,0,52.5,17,-26,61,78.6,1517,1474,1561,0,0,0,0,8722780460930021679,stayed,Phase 5.4/5.5: quiescence + move ordering
 2026-11-05 20:18:21,61742b9,,sf-elo1500,1500,exact,Stockfish 19,8+0.08,240,144,14,82,0,62.9,92,49,138,100.0,1592,1549,1638,0,0,0,0,241397858839746977,promoted to sf-elo1600,Phase 5.6: check extension
 2026-11-05 20:30:18,61742b9,,sf-elo1600,1600,exact,Stockfish 19,8+0.08,240,104,9,127,0,45.2,-33,-77,10,6.5,1567,1523,1610,0,0,0,1,4507911987025144154,stayed (opponent faults),Phase 5.6: check extension
+2026-11-05 20:51:52,e6defc3,,sf-elo1600,1600,exact,Stockfish 19,8+0.08,240,190,5,45,0,80.2,243,193,304,100.0,1843,1793,1904,0,0,0,0,5150982312722034840,promoted to sf-elo1700,Phase 5.7: piece-square tables
+2026-11-05 21:02:43,e6defc3,,sf-elo1700,1700,exact,Stockfish 19,8+0.08,240,184,8,48,0,78.3,223,175,281,100.0,1923,1875,1981,0,0,0,0,4678797114685108768,promoted to sf-elo1800,Phase 5.7: piece-square tables
+2026-11-05 21:13:56,e6defc3,,sf-elo1800,1800,exact,Stockfish 19,8+0.08,240,172,8,60,0,73.3,176,130,228,100.0,1976,1930,2028,0,0,0,0,401303421398722502,promoted to sf-elo1900,Phase 5.7: piece-square tables
+2026-11-05 21:25:46,e6defc3,,sf-elo1900,1900,exact,Stockfish 19,8+0.08,240,142,11,87,0,61.5,81,38,127,100.0,1981,1938,2027,0,0,0,0,870562263569401564,promoted to sf-elo2000,Phase 5.7: piece-square tables
+2026-11-05 21:37:57,e6defc3,,sf-elo2000,2000,exact,Stockfish 19,8+0.08,240,124,14,102,0,54.6,32,-11,75,92.8,2032,1989,2075,0,0,0,0,8601181121363237175,stayed,Phase 5.7: piece-square tables
