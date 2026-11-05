@@ -186,6 +186,11 @@ The smoke run scored 20/20 for full strength in 15 s, with every game ending nor
 
 **Exit check:** FEN round-trip tests pass, and clippy and fmt are clean.
 
+**Done 2026-11-05:** types in `src/types/`, `Position` with FEN and Zobrist keys in `src/board/`,
+and SplitMix64 in `src/rng.rs`. Zobrist keys are generated at compile time. FEN parsing
+accepts 4–6 fields and validates material, castling rights and en passant. 37 unit tests
+cover this.
+
 ### Phase 2 — Move generation and perft
 
 - Precomputed knight, king and pawn attack tables.
@@ -202,6 +207,14 @@ The smoke run scored 20/20 for full strength in 15 s, with every game ending nor
   or extra. This turns a perft mismatch from hours of debugging into minutes.
 - A property test: at every node of a depth-3 perft over all suite positions, make then
   unmake must restore the position exactly, including the Zobrist key.
+- Carried over from Phase 1:
+  - Once attack detection exists, `from_fen` must also reject positions where the side
+    *not* to move is in check. This also covers adjacent kings.
+  - `make_move` must set the en passant square with the same "a pawn of the side to move
+    could capture" rule that `from_fen` uses. Share one function between them, and test that
+    after a double push `key()` equals `from_fen(to_fen()).key()`. The rule is pseudo-legal:
+    a pinned capturer still counts. That is a small, consistent difference from FIDE's
+    definition of a repeated position.
 
 **Exit check:** the full perft suite in §7.2 passes. As a soft speed target, startpos
 perft 6 should take under about 5 s in release mode.
@@ -211,6 +224,8 @@ perft 6 should take under about 5 s in release mode.
 - Implement the threading model in §4.3 and the full command set in §7.1. A search stub
   plays a **random legal move**, so the protocol is complete before real search exists.
 - Non-standard debug commands: `d` (print the board, FEN and key) and `go perft`.
+- FEN parsing is strict. If `position fen …` is rejected, report the error with `info string`
+  and keep the previous position, so the engine never ends up with a half-applied position.
 - Integration tests in `tests/uci.rs` spawn the binary and check:
   - `uci` → `id …`/`uciok`
   - `isready` → `readyok`, including while a `go infinite` is running

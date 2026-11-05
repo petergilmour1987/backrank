@@ -8,6 +8,8 @@ library (the engine) and a binary (the front end that talks to GUIs / the user).
 ```
 Cargo.toml          # workspace root + the `backrank` package ([lib] + [[bin]], both `backrank`)
 src/lib.rs          # engine library — all chess logic belongs here
+src/types/          # Square/File/Rank, Bitboard, Color/PieceType/Piece, CastlingRights, Move
+src/board/          # Position: bitboards + mailbox, FEN, Zobrist keys, invariant checks
 src/main.rs         # thin binary; parses I/O and calls into the library
 tests/              # integration tests (create when needed)
 benches/            # benchmarks (create when needed)
@@ -66,6 +68,7 @@ pass. Run them locally: the GitHub workflow is manual-only for now, to save Acti
 
 ## Status
 
-Phase 0 (workspace, xtask setup/smoke, manual-only CI workflow) is done; no engine code yet. The v1 roadmap (phases, decisions,
+Phases 0 (tooling) and 1 (core types, `Position`, FEN, Zobrist) are done; next is Phase 2
+(move generation and perft). The v1 roadmap (phases, decisions,
 Stockfish ladder, UCI spec, perft suite) is in `docs/plan-v1.md`; follow its phase order
 and exit checks.
