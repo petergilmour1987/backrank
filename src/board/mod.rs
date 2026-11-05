@@ -138,6 +138,30 @@ impl Position {
         self.is_square_attacked(self.king_square(us), !us)
     }
 
+    /// True if this position, with the same side to move, already occurred since the last
+    /// capture or pawn move. Inside a search, one repetition is scored as a draw: if it
+    /// was worth repeating once, it can be repeated again.
+    pub fn is_repetition(&self) -> bool {
+        let n = self.history.len();
+        // Positions before the last irreversible move can't recur. `history[n - k].key` is
+        // the key k plies ago; a position can't recur in fewer than 4 plies.
+        let reach = usize::from(self.halfmove_clock).min(n);
+        (4..=reach)
+            .step_by(2)
+            .any(|back| self.history[n - back].key == self.key)
+    }
+
+    /// True if neither side can possibly checkmate: bare kings, or kings and a single
+    /// knight or bishop.
+    pub fn has_insufficient_material(&self) -> bool {
+        let count = |kind| {
+            self.pieces(Piece::new(Color::White, kind)).count()
+                + self.pieces(Piece::new(Color::Black, kind)).count()
+        };
+        count(PieceType::Pawn) + count(PieceType::Rook) + count(PieceType::Queen) == 0
+            && count(PieceType::Knight) + count(PieceType::Bishop) <= 1
+    }
+
     /// Whether a `capturer` pawn could capture en passant onto `ep`. FEN parsing and
     /// `make_move` both use this rule, so a position has the same key however it was
     /// reached. Pins are ignored: a pinned capturer still counts.

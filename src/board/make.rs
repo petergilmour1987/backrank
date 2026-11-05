@@ -12,8 +12,9 @@ pub(super) struct Undo {
     castling: CastlingRights,
     en_passant: Option<Square>,
     halfmove_clock: u16,
-    /// The key before the move, restored as-is instead of being updated back.
-    key: u64,
+    /// The key before the move, restored as-is instead of being updated back. Also the
+    /// key history that repetition detection searches.
+    pub(super) key: u64,
 }
 
 /// The castling rights lost when a piece moves from or onto each square: moving the king or
@@ -348,5 +349,48 @@ mod tests {
         assert!(!pos.make_move(Move::quiet(Square::F2, Square::E3)));
         assert_eq!(pos, before);
         assert!(pos.history.is_empty());
+    }
+
+    #[test]
+    fn repetition_needs_the_same_position_and_side_to_move() {
+        let mut pos = Position::startpos();
+        play(&mut pos, "g1f3 g8f6 f3g1");
+        assert!(!pos.is_repetition());
+        play(&mut pos, "f6g8");
+        assert!(
+            pos.is_repetition(),
+            "back to the start position after four plies"
+        );
+        // A pawn move makes everything before it unrepeatable.
+        play(&mut pos, "e2e4 e7e5 g1f3 g8f6 f3g1");
+        assert!(!pos.is_repetition());
+        play(&mut pos, "f6g8");
+        assert!(pos.is_repetition());
+    }
+
+    #[test]
+    fn repetition_includes_game_history_before_a_fen() {
+        // Counters come from the FEN, but only moves played on this Position can repeat.
+        let mut pos = Position::from_fen("4k3/8/8/8/8/8/8/R3K3 w - - 30 60").unwrap();
+        play(&mut pos, "a1a2 e8d8 a2a1");
+        assert!(!pos.is_repetition());
+        play(&mut pos, "d8e8");
+        assert!(pos.is_repetition());
+    }
+
+    #[test]
+    fn insufficient_material() {
+        for (fen, expected) in [
+            ("4k3/8/8/8/8/8/8/4K3 w - - 0 1", true),
+            ("4k3/8/8/8/8/8/8/3NK3 w - - 0 1", true),
+            ("4k3/8/8/8/8/8/8/3bK3 w - - 0 1", true),
+            ("4k3/8/8/8/8/8/8/2NNK3 w - - 0 1", false),
+            ("4k3/8/8/8/8/8/8/2NbK3 w - - 0 1", false),
+            ("4k3/8/8/8/8/8/4P3/4K3 w - - 0 1", false),
+            ("4k3/8/8/8/8/8/8/3RK3 w - - 0 1", false),
+        ] {
+            let pos = Position::from_fen(fen).unwrap();
+            assert_eq!(pos.has_insufficient_material(), expected, "{fen}");
+        }
     }
 }

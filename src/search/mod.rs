@@ -317,6 +317,9 @@ impl<'a> Searcher<'a> {
         if self.should_stop() {
             return 0;
         }
+        if self.is_draw() {
+            return 0;
+        }
         if depth == 0 || ply >= MAX_PLY - 1 {
             return eval::evaluate(self.pos);
         }
@@ -355,6 +358,16 @@ impl<'a> Searcher<'a> {
             };
         }
         best
+    }
+
+    /// Whether the current position (never the root) is a draw by repetition, the
+    /// fifty-move rule or insufficient material. Checkmate takes precedence over the
+    /// fifty-move rule.
+    fn is_draw(&mut self) -> bool {
+        self.pos.is_repetition()
+            || self.pos.has_insufficient_material()
+            || (self.pos.halfmove_clock() >= 100
+                && !(self.pos.in_check() && movegen::legal_moves(self.pos).is_empty()))
     }
 
     /// Whether to abandon the search: the GUI said stop, time is up, or the node limit is
@@ -423,15 +436,16 @@ mod tests {
 
     #[test]
     fn wins_material_and_avoids_losing_it() {
-        // The queen on d5 hangs to the knight on c3.
-        let (best, info) = best_move("4k3/8/8/3q4/8/2N5/8/4K3 w - - 0 1", 2);
+        // The queen on d5 hangs to the knight on c3. (The e2 pawn keeps the result from
+        // being a dead draw of king and knight against king.)
+        let (best, info) = best_move("4k3/8/8/3q4/8/2N5/4P3/4K3 w - - 0 1", 2);
         assert_eq!(best.unwrap().to_string(), "c3d5");
         assert!(
             matches!(info.score, Score::Centipawns(cp) if cp > 200),
             "{info:?}"
         );
         // With black to move, the queen must not go where the knight can take it.
-        let (best, _) = best_move("4k3/8/8/3q4/8/2N5/8/4K3 b - - 0 1", 2);
+        let (best, _) = best_move("4k3/8/8/3q4/8/2N5/4P3/4K3 b - - 0 1", 2);
         let m = best.unwrap().to_string();
         let knight_takes = ["d5b5", "d5e4", "d5d1", "d5a4", "d5b1", "d5e2", "d5a2"];
         assert!(!knight_takes.contains(&m.as_str()), "{m}");
@@ -444,6 +458,38 @@ mod tests {
         assert_eq!(info.pv.first().copied(), best);
         assert_eq!(info.pv.len(), 3, "{:?}", info.pv);
         assert!(info.nodes > 0 && info.seldepth >= 3);
+    }
+
+    #[test]
+    fn the_fifty_move_rule_is_a_draw() {
+        // A rook up, but every move reaches the hundredth half-move without a capture.
+        let (_, info) = best_move("8/8/8/4k3/8/8/8/R3K3 w - - 99 80", 4);
+        assert_eq!(info.score, Score::Centipawns(0));
+        let (_, info) = best_move("8/8/8/4k3/8/8/8/R3K3 w - - 90 80", 4);
+        assert!(
+            matches!(info.score, Score::Centipawns(cp) if cp >= 400),
+            "{info:?}"
+        );
+    }
+
+    #[test]
+    fn the_losing_side_takes_a_repetition() {
+        // White is a queen up. After Qb2 Ka7 Qb1, black can go back to a8 and repeat the
+        // position, which scores 0 instead of losing.
+        let tokens: Vec<&str> = "fen k7/8/8/8/8/8/8/KQ6 w - - 0 1 moves b1b2 a8a7 b2b1"
+            .split_whitespace()
+            .collect();
+        let mut pos = crate::uci::parse_position(&tokens).unwrap();
+        let limits = Limits {
+            depth: Some(3),
+            ..Limits::default()
+        };
+        let mut info = None;
+        let best = search(&mut pos, &limits, &AtomicBool::new(false), &mut |i| {
+            info = Some(i.clone())
+        });
+        assert_eq!(best.unwrap().to_string(), "a7a8");
+        assert_eq!(info.unwrap().score, Score::Centipawns(0));
     }
 
     #[test]
