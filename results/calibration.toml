@@ -1,0 +1,38 @@
+# Ratings of ladder rungs measured by `cargo xtask calibrate`. Each rung played its
+# stronger neighbour; see `against`.
+
+[blunder10]
+rating = 1062.8852996996184
+bound = "exact"
+blunder = 0.1
+against = "sf-elo1320"
+against_rating = 1320.0
+games = 240
+score = 0.18541666666666667
+tc = "8+0.08"
+stockfish = "Stockfish 19"
+date = "2026-11-05 15:20:23"
+
+[blunder25]
+rating = 778.0327195420225
+bound = "exact"
+blunder = 0.25
+against = "blunder10"
+against_rating = 1062.8852996996184
+games = 240
+score = 0.1625
+tc = "8+0.08"
+stockfish = "Stockfish 19"
+date = "2026-11-05 15:31:45"
+
+[blunder40]
+rating = 498.44471780761495
+bound = "exact"
+blunder = 0.4
+against = "blunder25"
+against_rating = 778.0327195420225
+games = 240
+score = 0.16666666666666666
+tc = "8+0.08"
+stockfish = "Stockfish 19"
+date = "2026-11-05 15:43:27"
