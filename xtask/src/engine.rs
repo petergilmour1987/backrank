@@ -50,11 +50,12 @@ pub fn build_sfproxy() -> Result<PathBuf> {
 
 /// A label for the working tree's version: the short commit hash, plus
 /// `-dirty-<hash of the diff>` if tracked files have uncommitted changes, so different
-/// uncommitted experiments get different labels.
+/// uncommitted experiments get different labels. Changes under `results/` don't count:
+/// recording a result doesn't change the engine.
 pub fn version_label() -> Result<String> {
     use sha2::{Digest, Sha256};
     let sha = git(&["rev-parse", "--short", "HEAD"])?;
-    let diff = git(&["diff", "HEAD"])?;
+    let diff = git(&["diff", "HEAD", "--", ".", ":(exclude)results"])?;
     if diff.is_empty() {
         return Ok(sha);
     }

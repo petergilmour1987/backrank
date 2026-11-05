@@ -1,4 +1,8 @@
-//! Choosing a move: a negamax alpha-beta search to a fixed depth.
+//! Choosing a move: iterative deepening negamax alpha-beta search, with time management.
+//!
+//! The search goes one ply deeper each iteration and reports after each. An iteration that
+//! is stopped part way is thrown away, so the move played always comes from a completed
+//! search. Depth 1 is never stopped, so there is always a move.
 
 use crate::board::Position;
 use crate::eval;
@@ -10,9 +14,8 @@ use std::time::{Duration, Instant};
 /// The deepest the search goes, in plies from the root.
 pub const MAX_PLY: usize = 128;
 
-/// Depth searched when the GUI gives no depth. Time limits are not used yet (Phase 5
-/// step 2 adds iterative deepening and time management).
-const DEFAULT_DEPTH: u32 = 4;
+/// The deepest iteration, leaving room below it within [`MAX_PLY`].
+const MAX_DEPTH: u32 = 64;
 
 /// The score of being checkmated at the root. Mate `n` plies from the root scores
 /// `MATE - n` for the winner, so shorter mates score higher.
@@ -22,8 +25,11 @@ const INFINITY: i32 = MATE + 1;
 /// Scores this far from zero or further are mates.
 const MATE_BOUND: i32 = MATE - MAX_PLY as i32;
 
-/// How often, in nodes, to check the stop flag.
+/// How often, in nodes, to check the stop flag and the clock.
 const CHECK_INTERVAL: u64 = 2048;
+
+/// Without `movestogo`, plan for this many more moves.
+const MOVES_TO_PLAN_FOR: u32 = 20;
 
 /// What the GUI allows for this move. Clock times are for the side to move.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -130,6 +136,32 @@ pub fn search(
     best
 }
 
+/// How long to think, as `(soft, hard)`: no new iteration starts after `soft`, and the
+/// search is abandoned at `hard`. `None` when only `stop`, a depth or a node count ends
+/// the search.
+///
+/// With a clock, the hard limit is `usable / n + increment / 2`, never more than `usable`,
+/// where `usable` is the time left minus Move Overhead and `n` is `movestogo + 1` (at most
+/// 20, and 20 when not given). Starting a new iteration after half of that is rarely worth
+/// it, since each iteration takes several times longer than the last.
+fn time_budget(limits: &Limits) -> Option<(Duration, Duration)> {
+    if limits.infinite {
+        return None;
+    }
+    if let Some(move_time) = limits.move_time {
+        let time = move_time.saturating_sub(limits.move_overhead);
+        return Some((time, time));
+    }
+    let left = limits.time_left?;
+    let usable = left.saturating_sub(limits.move_overhead);
+    let moves = match limits.moves_to_go {
+        Some(n) => (n.max(1) + 1).min(MOVES_TO_PLAN_FOR),
+        None => MOVES_TO_PLAN_FOR,
+    };
+    let hard = (usable / moves + limits.increment / 2).min(usable);
+    Some((hard / 2, hard))
+}
+
 /// The principal variation found at each ply ("triangular" PV table): row `ply` holds the
 /// best line found from that ply, in `moves[ply][ply..len[ply]]`.
 struct PvTable {
@@ -175,6 +207,12 @@ struct Searcher<'a> {
     stop: &'a AtomicBool,
     nodes: u64,
     seldepth: usize,
+    /// No new iteration starts after this.
+    soft_deadline: Option<Instant>,
+    /// The search is abandoned at this.
+    hard_deadline: Option<Instant>,
+    /// False during depth 1, which always completes.
+    can_abort: bool,
     /// Set once the search has been told to stop; scores found after that are unreliable.
     aborted: bool,
     pv: PvTable,
@@ -182,20 +220,23 @@ struct Searcher<'a> {
 
 impl<'a> Searcher<'a> {
     fn new(pos: &'a mut Position, limits: &'a Limits, stop: &'a AtomicBool) -> Searcher<'a> {
+        let budget = time_budget(limits);
         Searcher {
             pos,
             limits,
             stop,
             nodes: 0,
             seldepth: 0,
+            soft_deadline: budget.map(|(soft, _)| limits.start + soft),
+            hard_deadline: budget.map(|(_, hard)| limits.start + hard),
+            can_abort: false,
             aborted: false,
             pv: PvTable::new(),
         }
     }
 
     fn run(&mut self, report: &mut dyn FnMut(&Info)) -> Option<Move> {
-        let legal = movegen::legal_moves(self.pos);
-        let Some(&first) = legal.first() else {
+        if movegen::legal_moves(self.pos).is_empty() {
             // Checkmated or stalemated: nothing to search.
             report(&Info {
                 depth: 0,
@@ -210,29 +251,39 @@ impl<'a> Searcher<'a> {
                 pv: Vec::new(),
             });
             return None;
-        };
+        }
 
-        let depth = self.limits.depth.unwrap_or(DEFAULT_DEPTH).max(1);
-        let (best, score) = self.search_root(depth);
-        let (best, depth, score, pv) = match best {
-            Some(best) => (best, depth, score, self.pv.root_line()),
-            // Stopped before any root move was searched: fall back to the first legal
-            // move, scored by the static evaluation.
-            None => (first, 0, eval::evaluate(self.pos), vec![first]),
-        };
-        report(&Info {
-            depth,
-            seldepth: self.seldepth as u32,
-            score: Score::from_search(score),
-            nodes: self.nodes,
-            time: self.limits.start.elapsed(),
-            pv,
-        });
-        Some(best)
+        let max_depth = self.limits.depth.unwrap_or(MAX_DEPTH).clamp(1, MAX_DEPTH);
+        let mut best = None;
+        for depth in 1..=max_depth {
+            self.can_abort = depth > 1;
+            let (root_best, score) = self.search_root(depth);
+            if self.aborted {
+                break;
+            }
+            best = root_best;
+            report(&Info {
+                depth,
+                seldepth: self.seldepth as u32,
+                score: Score::from_search(score),
+                nodes: self.nodes,
+                time: self.limits.start.elapsed(),
+                pv: self.pv.root_line(),
+            });
+            // Between iterations, stop for any reason the node checks would.
+            if self.stop.load(Ordering::Relaxed)
+                || self.soft_deadline.is_some_and(|d| Instant::now() >= d)
+                || self.limits.nodes.is_some_and(|limit| self.nodes >= limit)
+            {
+                break;
+            }
+        }
+        // Depth 1 always completes, and there are legal moves.
+        Some(best.expect("depth 1 always finds a move"))
     }
 
-    /// Searches every root move and returns the best one found with its score. If the
-    /// search is stopped part way, the best of the moves searched so far.
+    /// Searches every root move and returns the best one with its score. If the search is
+    /// stopped part way, the result is incomplete and must not be used.
     fn search_root(&mut self, depth: u32) -> (Option<Move>, i32) {
         self.pv.clear(0);
         let mut moves = MoveList::new();
@@ -306,13 +357,20 @@ impl<'a> Searcher<'a> {
         best
     }
 
-    /// Whether to abandon the search: the GUI said stop, or the node limit is reached.
+    /// Whether to abandon the search: the GUI said stop, time is up, or the node limit is
+    /// reached. Never during depth 1.
     fn should_stop(&mut self) -> bool {
         if self.aborted {
             return true;
         }
-        if self.limits.nodes.is_some_and(|limit| self.nodes >= limit)
-            || (self.nodes.is_multiple_of(CHECK_INTERVAL) && self.stop.load(Ordering::Relaxed))
+        if !self.can_abort {
+            return false;
+        }
+        let out_of_nodes = self.limits.nodes.is_some_and(|limit| self.nodes >= limit);
+        if out_of_nodes
+            || (self.nodes.is_multiple_of(CHECK_INTERVAL)
+                && (self.stop.load(Ordering::Relaxed)
+                    || self.hard_deadline.is_some_and(|d| Instant::now() >= d)))
         {
             self.aborted = true;
         }
@@ -403,14 +461,15 @@ mod tests {
             depth: Some(30),
             ..Limits::default()
         };
-        let mut info = None;
+        let mut infos = Vec::new();
         let best = search(&mut pos, &limits, &AtomicBool::new(true), &mut |i| {
-            info = Some(i.clone())
+            infos.push(i.clone())
         });
         assert!(movegen::legal_moves(&mut pos).contains(&best.unwrap()));
-        let info = info.unwrap();
-        assert!(matches!(info.score, Score::Centipawns(_)), "{info:?}");
-        assert_eq!(info.pv.first().copied(), best);
+        // Depth 1 completes even when told to stop at once; nothing deeper does.
+        assert_eq!(infos.len(), 1, "{infos:?}");
+        assert_eq!(infos[0].depth, 1);
+        assert_eq!(infos[0].pv.first().copied(), best);
     }
 
     #[test]
@@ -426,5 +485,93 @@ mod tests {
             nodes = info.nodes
         });
         assert!(nodes <= 5_000, "{nodes}");
+    }
+
+    fn ms(n: u64) -> Duration {
+        Duration::from_millis(n)
+    }
+
+    #[test]
+    fn time_budget_from_clocks() {
+        let clock = |left, inc, moves_to_go| Limits {
+            time_left: Some(ms(left)),
+            increment: ms(inc),
+            moves_to_go,
+            move_overhead: ms(20),
+            ..Limits::default()
+        };
+        // 60 s left, no increment: (60000 - 20) / 20 = 2999 ms hard, half of it soft.
+        assert_eq!(
+            time_budget(&clock(60_000, 0, None)),
+            Some((ms(2999) / 2, ms(2999)))
+        );
+        // Increment adds half of itself.
+        assert_eq!(
+            time_budget(&clock(8_000, 80, None)).unwrap().1,
+            ms(399 + 40)
+        );
+        // One move to go: half of what's left, never all of it.
+        assert_eq!(time_budget(&clock(1_020, 0, Some(1))).unwrap().1, ms(500));
+        // `movestogo 0` is treated as 1.
+        assert_eq!(time_budget(&clock(1_020, 0, Some(0))).unwrap().1, ms(500));
+        // A big increment can't plan to spend more than is on the clock.
+        assert_eq!(time_budget(&clock(100, 1_000, None)).unwrap().1, ms(80));
+        // A flagged clock leaves nothing (depth 1 still completes).
+        assert_eq!(time_budget(&clock(10, 0, None)), Some((ms(0), ms(0))));
+    }
+
+    #[test]
+    fn time_budget_for_other_limits() {
+        let fixed = Limits {
+            move_time: Some(ms(500)),
+            move_overhead: ms(20),
+            ..Limits::default()
+        };
+        assert_eq!(time_budget(&fixed), Some((ms(480), ms(480))));
+        let infinite = Limits {
+            infinite: true,
+            time_left: Some(ms(1_000)),
+            ..Limits::default()
+        };
+        assert_eq!(time_budget(&infinite), None);
+        let depth_only = Limits {
+            depth: Some(5),
+            ..Limits::default()
+        };
+        assert_eq!(time_budget(&depth_only), None);
+    }
+
+    #[test]
+    fn deepens_one_ply_at_a_time() {
+        let mut pos = Position::startpos();
+        let limits = Limits {
+            depth: Some(4),
+            ..Limits::default()
+        };
+        let mut depths = Vec::new();
+        search(&mut pos, &limits, &AtomicBool::new(false), &mut |i| {
+            depths.push(i.depth)
+        });
+        assert_eq!(depths, [1, 2, 3, 4]);
+    }
+
+    #[test]
+    fn keeps_to_the_move_time() {
+        let mut pos = Position::from_fen(
+            "r4rk1/1pp1qppp/p1np1n2/2b1p1B1/2B1P1b1/P1NP1N2/1PP1QPPP/R4RK1 w - - 0 10",
+        )
+        .unwrap();
+        let limits = Limits {
+            move_time: Some(ms(100)),
+            ..Limits::default()
+        };
+        let started = Instant::now();
+        let mut deepest = 0;
+        search(&mut pos, &limits, &AtomicBool::new(false), &mut |i| {
+            deepest = i.depth
+        });
+        let took = started.elapsed();
+        assert!(took >= ms(90) && took < ms(400), "took {took:?}");
+        assert!(deepest >= 2, "only reached depth {deepest}");
     }
 }
