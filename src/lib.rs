@@ -7,6 +7,7 @@ pub mod board;
 pub mod movegen;
 pub mod perft;
 mod rng;
+pub mod search;
 pub mod types;
 pub mod uci;
 
@@ -18,3 +19,6 @@ pub const ENGINE_NAME: &str = "Backrank";
 
 /// Engine version, taken from `Cargo.toml`.
 pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// Engine author, as reported to GUIs.
+pub const ENGINE_AUTHOR: &str = "petergilmour1987";

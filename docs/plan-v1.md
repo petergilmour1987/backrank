@@ -256,6 +256,24 @@ perft 6 should take under about 5 s in release mode.
 **Exit check:** the random mover completes 200 fastchess games against itself with no
 illegal moves, crashes or disconnects.
 
+**Done 2026-11-05:**
+- The UCI loop is in `src/uci/`, and the stand-in search is in `src/search/`. Its
+  `Limits`/`Info`/`Score` interface is what Phase 5's real search must keep.
+- `cargo xtask selfplay` played 200 games in 5 s, all ending normally (50.5%), with an
+  empty fastchess warning log.
+- `fastchess --compliance` passes all 40 of its checks. Those checks require an `info`
+  line with a score before `bestmove`, so the stand-in search reports one.
+- `tests/uci.rs` has 19 tests that run the binary over pipes. They passed 25 runs in a row
+  after one timing assumption in a test was fixed.
+- Fixed from the Phase 3 review:
+  - stdin is decoded leniently, so a non-UTF-8 byte no longer ends the session;
+  - `go perft` runs on the search thread and can be stopped;
+  - "search until `stop`" is decided from the final `Limits` (bare `go`, `go mate`, or
+    only the other side's clock);
+  - `Limits.start` is taken when `go` arrives;
+  - the search thread has a 64 MiB stack;
+  - `selfplay` also fails on any fastchess log warning.
+
 ### Phase 4 — Stockfish match harness and ladder
 
 - `tools/ladder.toml` holds the rungs (§6.2). `results/state.toml` holds the current rung.
@@ -298,7 +316,17 @@ The ladder runs record how much each feature is worth.
 1. **Material eval + fixed-depth negamax alpha-beta** (fail-soft). Mate scores are
    `±(MATE − ply)` and are reported as `score mate N`. Checkmate and stalemate are
    detected when there are no legal moves.
-2. **Iterative deepening and time management.** Search time is allocated as
+2. **Iterative deepening and time management.** Carried over from the Phase 3 review:
+   - Infinite mode must be handled inside the iterative-deepening loop. On reaching the
+     maximum depth, or a forced mate, wait for `stop` before returning. The stand-in
+     "search, then wait" won't carry over.
+   - Measure time from `Limits.start`, and subtract `Move Overhead` from both the clock
+     allocation and `movetime`, saturating at zero.
+   - Treat `movestogo 0` as 1.
+   - Add `seldepth` to `Info`.
+   - `searchmoves` and `mate` are still ignored.
+
+   Search time is allocated as
    `remaining/20 + inc/2` (with `movestogo` used when given), minus `Move Overhead`. No
    new iteration starts after half the allocation has been used. The search aborts at the
    full allocation; the stop flag and clock are checked every 2,048 nodes. `movetime`,

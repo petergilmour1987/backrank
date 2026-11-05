@@ -1,11 +1,14 @@
 //! The `backrank` binary: argument handling and output only; the work happens in the library.
+//!
+//! With no arguments it speaks UCI on stdin and stdout, which is how GUIs and match
+//! runners use it.
 
 use backrank::{perft, uci};
 use std::process::ExitCode;
 use std::time::Instant;
 
 const USAGE: &str = "\
-usage: backrank                     (prints the engine name; the UCI loop comes later)
+usage: backrank                     (UCI mode: reads commands on stdin)
        backrank perft <depth> [startpos | fen <FEN>] [moves <move>...]";
 
 fn main() -> ExitCode {
@@ -13,7 +16,7 @@ fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         None => {
-            println!("{} {}", backrank::ENGINE_NAME, backrank::ENGINE_VERSION);
+            uci::run();
             ExitCode::SUCCESS
         }
         Some("perft") => perft_command(&args[1..]),

@@ -1,9 +1,31 @@
-//! Minimal UCI client helpers for talking to engines outside of fastchess.
+//! Building Backrank, and minimal UCI client helpers for talking to engines outside of
+//! fastchess.
 
-use anyhow::{Context, Result, bail};
+use crate::paths;
+use anyhow::{Context, Result, bail, ensure};
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
+
+/// Builds the release `backrank` binary and returns its path.
+pub fn build_backrank() -> Result<PathBuf> {
+    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
+    let status = Command::new(cargo)
+        .args([
+            "build",
+            "--release",
+            "--quiet",
+            "--package",
+            "backrank",
+            "--bin",
+            "backrank",
+        ])
+        .current_dir(paths::root())
+        .status()
+        .context("failed to run cargo build")?;
+    ensure!(status.success(), "building backrank failed");
+    Ok(paths::root().join("target/release/backrank"))
+}
 
 /// Runs the UCI handshake and returns the engine's `id name` (e.g. "Stockfish 19").
 pub fn id_name(engine: &Path) -> Result<String> {

@@ -13,9 +13,10 @@ src/attacks/        # leaper tables (compile time) and magic bitboards for slide
 src/board/          # Position: bitboards + mailbox, FEN, Zobrist, make/unmake, attack queries
 src/movegen/        # pseudo-legal generation, MoveList, legal_moves / find_legal_move
 src/perft.rs        # perft and divide
-src/uci/            # UCI front end (so far: parse_position for `position` syntax)
+src/search/         # move choice (random legal move until Phase 5), Limits, Info, Score
+src/uci/            # UCI loop: stdin thread -> engine thread -> per-`go` search thread
 src/main.rs         # thin binary; parses I/O and calls into the library
-tests/              # integration tests: perft.rs (deep depths are #[ignore]d)
+tests/              # integration tests: perft.rs (deep depths #[ignore]d), uci.rs (runs the binary)
 benches/            # benchmarks (create when needed)
 xtask/              # dev tooling crate, run as `cargo xtask <cmd>` (alias in .cargo/config.toml)
 tools/              # bin/, books/, engines/ are installed by `cargo xtask setup` (gitignored)
@@ -41,6 +42,7 @@ cargo build --profile profiling # release + debug symbols, for profilers/flamegr
 cargo xtask setup               # install fastchess, opening book, Stockfish snapshot into tools/
 cargo xtask smoke               # harness check: Stockfish Skill 0 vs full strength via fastchess
 cargo xtask perft-diff --depth N [--fen F]   # compare perft with Stockfish, find the bad move
+cargo xtask selfplay            # Backrank vs itself; fails on any crash/illegal move/time loss
 cargo run --release -- perft N [startpos | fen F] [moves ...]  # perft split by first move
 ```
 
@@ -74,8 +76,9 @@ pass. Run them locally: the GitHub workflow is manual-only for now, to save Acti
 
 ## Status
 
-Phases 0 (tooling), 1 (core types, `Position`, FEN, Zobrist) and 2 (move generation,
-make/unmake, perft) are done; next is Phase 3 (UCI protocol). After changing move
+Phases 0 (tooling), 1 (core types, `Position`, FEN, Zobrist), 2 (move generation,
+make/unmake, perft) and 3 (UCI protocol, random-move player) are done; next is Phase 4
+(Stockfish ladder harness). After changing move
 generation or make/unmake, also run `cargo test --release --test perft -- --ignored`, and
 use `cargo xtask perft-diff` to localise any mismatch. The v1 roadmap (phases, decisions,
 Stockfish ladder, UCI spec, perft suite) is in `docs/plan-v1.md`; follow its phase order

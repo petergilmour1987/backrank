@@ -5,6 +5,7 @@ mod fastchess;
 mod paths;
 mod perft_diff;
 mod pgn;
+mod selfplay;
 mod setup;
 mod smoke;
 mod time;
@@ -32,6 +33,8 @@ enum Command {
     /// Compare Backrank's perft with Stockfish's and narrow any difference down to the
     /// exact position and move.
     PerftDiff(perft_diff::Args),
+    /// Play Backrank against itself and fail on any crash, illegal move or time forfeit.
+    Selfplay(selfplay::Args),
 }
 
 fn main() -> Result<()> {
@@ -39,5 +42,6 @@ fn main() -> Result<()> {
         Command::Setup(args) => setup::run(&args),
         Command::Smoke(args) => smoke::run(&args),
         Command::PerftDiff(args) => perft_diff::run(&args),
+        Command::Selfplay(args) => selfplay::run(&args),
     }
 }

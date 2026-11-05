@@ -4,11 +4,11 @@
 //! and the comparison repeats one ply shallower, until the exact position with a missing or
 //! extra move is found.
 
-use crate::paths;
+use crate::{engine, paths};
 use anyhow::{Context, Result, bail, ensure};
 use std::collections::BTreeMap;
 use std::io::Write;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::process::{Command, Stdio};
 
 #[derive(clap::Args)]
@@ -80,7 +80,7 @@ pub fn run(args: &Args) -> Result<()> {
         "{} is missing; run `cargo xtask setup` first",
         stockfish.display()
     );
-    let backrank = build_backrank()?;
+    let backrank = engine::build_backrank()?;
     let start = match &args.fen {
         Some(fen) => format!("fen {fen}"),
         None => "startpos".to_string(),
@@ -134,25 +134,6 @@ fn describe(start: &str, moves: &[String]) -> String {
     } else {
         format!("{start} moves {}", moves.join(" "))
     }
-}
-
-fn build_backrank() -> Result<PathBuf> {
-    let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
-    let status = Command::new(cargo)
-        .args([
-            "build",
-            "--release",
-            "--quiet",
-            "--package",
-            "backrank",
-            "--bin",
-            "backrank",
-        ])
-        .current_dir(paths::root())
-        .status()
-        .context("failed to run cargo build")?;
-    ensure!(status.success(), "building backrank failed");
-    Ok(paths::root().join("target/release/backrank"))
 }
 
 fn backrank_divide(binary: &Path, start: &str, moves: &[String], depth: u32) -> Result<Divide> {

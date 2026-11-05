@@ -4,7 +4,8 @@ A chess engine for standard chess, written in Rust. It speaks the UCI protocol a
 developed against Stockfish on a difficulty ladder that gets harder as Backrank improves.
 
 **Status:** early development. Move generation is complete and verified with perft, and
-the match tooling works, but the engine can't play games yet (UCI comes next).
+the engine speaks UCI, but for now it plays a random legal move: the real search is still
+to come.
 The roadmap and progress are in [`docs/plan-v1.md`](docs/plan-v1.md).
 
 ## Requirements
@@ -21,8 +22,46 @@ The roadmap and progress are in [`docs/plan-v1.md`](docs/plan-v1.md).
 
 ```sh
 cargo build --release            # optimised build: target/release/backrank
-cargo run --release              # run the engine (for now it only prints its name)
+cargo run --release              # run the engine in UCI mode
 ```
+
+### Using it as a UCI engine
+
+Run with no arguments, `backrank` reads UCI commands on stdin and answers on stdout. To use
+it in a chess GUI (Cute Chess, Arena, BanksiaGUI and so on), add
+`target/release/backrank` as a UCI engine. To try it by hand:
+
+```
+$ cargo run --release
+uci
+id name Backrank 0.1.0
+id author petergilmour1987
+option name Move Overhead type spin default 20 min 0 max 5000
+uciok
+position startpos moves e2e4
+go movetime 1000
+info depth 1 score cp 0 nodes 20 nps 20000 time 0 pv g8f6
+bestmove g8f6
+quit
+```
+
+It supports the standard commands: `uci`, `isready`, `setoption`, `ucinewgame`,
+`position`, `go` (with `wtime`, `btime`, `winc`, `binc`, `movestogo`, `depth`, `nodes`,
+`movetime` and `infinite`), `stop` and `quit`. A bare `go` searches until `stop`.
+
+| Option | Default | Effect |
+|---|---|---|
+| `Move Overhead` | 20 | Milliseconds kept in reserve per move for communication delays (0 to 5000). |
+
+Two non-standard commands help with debugging:
+
+| Command | Effect |
+|---|---|
+| `d` | Print the board, its FEN and its Zobrist key. |
+| `go perft <depth>` | Perft from the current position, in Stockfish's output format. It runs in the background, so `stop` ends it early. |
+
+If a `position` command is invalid (a bad FEN or an illegal move), the engine reports it
+with `info string` and keeps the previous position.
 
 ### Perft
 
@@ -49,8 +88,9 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
-The deeper perft tests take too long for every run, so they are ignored by default. Run
-them after any change to move generation (they take a few seconds in release mode):
+`cargo test` includes UCI tests that run the real binary and talk to it over pipes. The
+deeper perft tests take too long for every run, so they are ignored by default. Run them
+after any change to move generation (they take a few seconds in release mode):
 
 ```sh
 cargo test --release --test perft -- --ignored
@@ -107,6 +147,29 @@ least 90% and every game ends normally (no time forfeits, crashes or illegal mov
 
 Each run saves its games to `results/pgn/` and the fastchess log to `results/logs/`. Both
 directories are gitignored.
+
+### Self-play stress test
+
+```sh
+cargo xtask selfplay
+```
+
+This builds Backrank and plays it against itself through fastchess. The result doesn't
+matter. The test passes only if every game ends normally: any crash, illegal move, time
+forfeit or stalled game is reported as a failure. 200 games take a few seconds while
+Backrank plays random moves.
+
+| Option | Default | Effect |
+|---|---|---|
+| `--games <n>` | `200` | Number of games. Must be even. |
+| `--tc <tc>` | `4+0.04` | Time control as seconds+increment. |
+| `--concurrency <n>` | `8` | Games played at the same time. |
+
+fastchess can also check the engine's UCI behaviour directly:
+
+```sh
+cargo build --release && tools/bin/fastchess --compliance target/release/backrank
+```
 
 ### Finding move generation bugs
 
