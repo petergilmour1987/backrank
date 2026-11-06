@@ -1,0 +1,140 @@
+name: Build
+
+# Builds, packages and tests the release archives. release.yml calls this for a real release,
+# and ci.yml as a dry run on pull requests that would publish one. It deliberately uses no
+# build cache, so release binaries always come from a clean build.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: build (${{ matrix.asset }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - asset: macos-arm64
+            os: macos-15
+            target: aarch64-apple-darwin
+          - asset: macos-x86-64
+            os: macos-15-intel
+            target: x86_64-apple-darwin
+            rustflags: -C target-cpu=x86-64-v2
+          - asset: linux-x86-64
+            os: ubuntu-24.04
+            target: x86_64-unknown-linux-musl
+            rustflags: -C target-cpu=x86-64-v2
+          - asset: linux-arm64
+            os: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-musl
+          - asset: windows-x86-64
+            os: windows-2025
+            target: x86_64-pc-windows-msvc
+            rustflags: -C target-cpu=x86-64-v2 -C target-feature=+crt-static
+          - asset: windows-arm64
+            os: windows-11-arm
+            target: aarch64-pc-windows-msvc
+            rustflags: -C target-feature=+crt-static
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    env:
+      ASSET: ${{ matrix.asset }}
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install && rustup target add "$TARGET"
+      - name: Build
+        env:
+          RUSTFLAGS: ${{ matrix.rustflags }}
+        run: cargo build --locked --release -p backrank --target "$TARGET"
+
+      # Each macOS slice is tested on its own architecture, then combined by the job below.
+      - name: Test the macOS slice
+        if: runner.os == 'macOS'
+        run: cargo xtask verify-binary "target/$TARGET/release/backrank"
+      - if: runner.os == 'macOS'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: slice-${{ matrix.asset }}
+          path: target/${{ matrix.target }}/release/backrank
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Package and test the Linux archive
+        if: runner.os == 'Linux'
+        run: |
+          binary="target/$TARGET/release/backrank"
+          file "$binary"
+          file "$binary" | grep -q static || { echo "::error::not statically linked"; exit 1; }
+          stage="backrank-$ASSET"
+          mkdir "$stage"
+          cp "$binary" LICENSE README.md "$stage/"
+          tar -czf "$stage.tar.gz" "$stage"
+          mkdir unpacked
+          tar -xzf "$stage.tar.gz" -C unpacked
+          cargo xtask verify-binary "unpacked/$stage/backrank"
+      - name: Package and test the Windows archive
+        if: runner.os == 'Windows'
+        run: |
+          stage="backrank-$ASSET"
+          mkdir "$stage"
+          cp "target/$TARGET/release/backrank.exe" LICENSE README.md "$stage/"
+          pwsh -NoProfile -Command "Compress-Archive -Path '$stage' -DestinationPath '$stage.zip'"
+          pwsh -NoProfile -Command "Expand-Archive -Path '$stage.zip' -DestinationPath unpacked"
+          cargo xtask verify-binary "unpacked/$stage/backrank.exe"
+      - if: runner.os != 'macOS'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: archive-${{ matrix.asset }}
+          path: backrank-${{ matrix.asset }}.${{ runner.os == 'Windows' && 'zip' || 'tar.gz' }}
+          if-no-files-found: error
+          retention-days: 7
+
+  macos-universal:
+    needs: build
+    runs-on: macos-15
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: slice-macos-arm64
+          path: slices/arm64
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: slice-macos-x86-64
+          path: slices/x86-64
+      - name: Package and test the universal archive
+        run: |
+          stage=backrank-macos-universal
+          mkdir "$stage"
+          lipo -create -output "$stage/backrank" slices/arm64/backrank slices/x86-64/backrank
+          # Artifacts don't keep file permissions.
+          chmod +x "$stage/backrank"
+          archs=$(lipo -archs "$stage/backrank")
+          [[ "$archs" == *x86_64* && "$archs" == *arm64* ]] || { echo "::error::expected both architectures, got $archs"; exit 1; }
+          cp LICENSE README.md "$stage/"
+          # Keeps macOS metadata files out of the archive.
+          COPYFILE_DISABLE=1 tar -czf "$stage.tar.gz" "$stage"
+          mkdir unpacked
+          tar -xzf "$stage.tar.gz" -C unpacked
+          cargo xtask verify-binary "unpacked/$stage/backrank"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: archive-macos-universal
+          path: backrank-macos-universal.tar.gz
+          if-no-files-found: error
+          retention-days: 7

@@ -87,7 +87,7 @@ merge commit lands on main
  ├─ plan      read the Cargo.toml version; stop if that release is already published
  ├─ build     native build on each OS, then run the binary (see below)
  ├─ tag       annotated v<version> on the merge commit, only after every build passes
- └─ release   draft, upload archives + SHA256SUMS, attest, publish
+ └─ release   checksums and attestations, then draft, upload and publish
 ```
 
 **If the tag already exists:** on this commit, the run carries on, which makes re-running a failed job safe. On a different commit, `plan` warns and stops, because binaries built from this commit must not be attached to a tag on another one.
@@ -113,7 +113,18 @@ These follow Stockfish's naming, minus Android and RISC-V. Unversioned names giv
 
 Each archive holds the binary, `LICENSE` and `README.md`. GitHub's automatic source archives help meet the GPL's source requirement.
 
-**Measure x86-64 speed before shipping.** Development so far has been on ARM, where popcount is a fast instruction. The default x86-64 target has no `POPCNT`, so `Bitboard::count` (`src/types/bitboard.rs:41`) uses a slower fallback. The plan is to build with `-C target-cpu=x86-64-v2`, which any CPU from roughly the last 15 years supports. Stage 3 compares baseline, v2 and v3 speed, and musl against glibc, and only adds extra builds if the numbers justify them.
+**x86-64 builds use `-C target-cpu=x86-64-v2`.** Development so far has been on ARM, where popcount is a fast instruction, while the default x86-64 target has no `POPCNT` and `Bitboard::count` (`src/types/bitboard.rs:41`) uses a slower fallback. Measured on GitHub's x86-64 runners (Intel Xeon Platinum) on 2026-11-06, as the median of three 4-second searches of Kiwipete, in millions of nodes per second:
+
+| Build | Baseline | `x86-64-v2` | `x86-64-v3` |
+|---|---|---|---|
+| Linux, glibc | 5.85 | 6.08 | 6.22 |
+| Linux, musl | 5.60 | 5.76 | 5.91 |
+| Windows, MSVC | 6.12 | 6.25 | 6.36 |
+
+- **`v2` is a small, free gain** of 2-4%. Any CPU from roughly the last 15 years supports it.
+- **`v3` adds only about 2% more**, which doesn't justify a second x86-64 download.
+- **musl costs about 5% against glibc.** That's worth paying for a binary that runs on any distro.
+- Perft speed barely changes between builds (about 31 million nodes per second on Linux, 35 on Windows).
 
 ### Tooling: a hand-written workflow
 
@@ -179,6 +190,7 @@ Stockfish's packaging, from Repology and winget-pkgs, shows the split. Windows a
 | Failure | Result | Recovery |
 |---|---|---|
 | Build or smoke test fails after merge | No tag, nothing public | Merge a fix PR with no new bump (`check-release` allows this); it releases the same version on the fix's merge commit |
+| A version has no changelog notes | `plan` fails before anything is built or tagged | Merge a PR adding the notes, with no new bump |
 | Upload fails | The tag and a draft exist, but nothing is published | Re-run the failed job. If that's no longer possible, ship the next patch version, because `plan` won't release from another commit |
 | A bad release is published | Immutable, so it can't be replaced | Ship a patch release and note the problem on the old release (notes stay editable) |
 
@@ -214,7 +226,7 @@ Each stage is its own PR or set of PRs, and each must pass its exit check before
 - *Exit:* while `main` is still at the tagged 0.1.0, the Stage 2 PR fails `gates` when pushed without its bump commit, and passes once the bump is pushed. After the merge, `main`'s 0.2.0 is untagged and so exempt, so this can't be retested until Verification check 1.
 
 **Stage 3: GitHub Releases.**
-- Add the reusable build workflow and `release.yml`, run the x86-64 speed comparison, and turn on immutable releases.
+- Add the reusable build workflow and `release.yml`, and turn on immutable releases.
 - Add a README install section: where to download, verifying checksums, and the macOS and Windows warnings.
 - Add the release dry run to `gates`, and merge. With `main` already at 0.2.0 and no tag, this merge ships `v0.2.0` through the full flow.
 - *Exit:* all the Verification checks below for that release pass.

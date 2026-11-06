@@ -8,6 +8,7 @@ Notable changes to Backrank. The version rules are in the README's development w
 
 ### Added
 
+- Prebuilt binaries for macOS, Linux and Windows, on x86-64 and ARM64.
 - `backrank --version`.
 - The engine so far: bitboard move generation validated with perft, the UCI protocol, and
   alpha-beta search with iterative deepening, quiescence search, move ordering and time

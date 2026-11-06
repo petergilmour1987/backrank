@@ -86,6 +86,8 @@ jobs:
   release-rules:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    outputs:
+      dry_run: ${{ steps.dry-run.outputs.needed }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -93,15 +95,29 @@ jobs:
           fetch-depth: 0
       - run: rustup toolchain install
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      # Merging publishes a release if this version has no tag yet.
+      - id: dry-run
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
+          workflows=$(git diff --name-only origin/main...HEAD -- .github/workflows/build.yml .github/workflows/release.yml)
+          if [ -n "$workflows" ] || ! git rev-parse --quiet --verify "refs/tags/v$version" > /dev/null; then
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
       - env:
           WAIVER: ${{ contains(github.event.pull_request.labels.*.name, 'no-strength-test') && '--no-strength-test' || '' }}
         run: cargo xtask check-release --base origin/main $WAIVER
+
+  # A merge that would publish a release must first show that the release build works.
+  release-dry-run:
+    needs: release-rules
+    if: needs.release-rules.outputs.dry_run == 'true'
+    uses: ./.github/workflows/build.yml
 
   # The one check the branch rule on main requires, so jobs can be added or skipped here
   # without changing the rule.
   gates:
     if: always()
-    needs: [lint, test, deep-perft, msrv, uci, release-rules]
+    needs: [lint, test, deep-perft, msrv, uci, release-rules, release-dry-run]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

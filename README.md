@@ -10,7 +10,40 @@ beats `UCI_Elo` 1900 and scores 58.5% against 2000. That rating is an estimate a
 optimistic at this fast time control; see [`results/ladder.csv`](results/ladder.csv).
 The roadmap and progress are in [`docs/plan-v1.md`](docs/plan-v1.md).
 
+## Installing
+
+Prebuilt binaries are on the
+[releases page](https://github.com/petergilmour1987/backrank-chess-engine/releases). Until
+v1.0.0, releases are marked as pre-releases.
+
+| Archive | For |
+|---|---|
+| `backrank-macos-universal.tar.gz` | macOS on Apple Silicon or Intel |
+| `backrank-linux-x86-64.tar.gz` | Linux on x86-64, any distribution (statically linked) |
+| `backrank-linux-arm64.tar.gz` | Linux on ARM64, any distribution (statically linked) |
+| `backrank-windows-x86-64.zip` | Windows on x86-64 |
+| `backrank-windows-arm64.zip` | Windows on ARM64 |
+
+Unpack the archive and add the `backrank` binary to your chess GUI as a UCI engine. x86-64
+builds need a CPU with POPCNT and SSE4.2, which nearly every PC from the last 15 years has.
+If yours doesn't, [build from source](#building-and-running).
+
+The binaries aren't code signed yet:
+
+- **macOS:** a browser download is blocked until you run
+  `xattr -d com.apple.quarantine backrank`. A chess GUI may fail to start the engine until
+  you do. Downloads made with `curl` aren't affected.
+- **Windows:** SmartScreen or your antivirus may warn about an unknown publisher.
+
+Each release includes a `SHA256SUMS` file, so you can check a download with
+`sha256sum -c SHA256SUMS --ignore-missing` (on macOS,
+`shasum -a 256 -c SHA256SUMS --ignore-missing`). To check that GitHub Actions built it from
+this repository, run
+`gh attestation verify <file> --repo petergilmour1987/backrank-chess-engine`.
+
 ## Requirements
+
+These are for building from source and for the match tooling.
 
 - **Rust**, via [rustup](https://rustup.rs). `rust-toolchain.toml` pins the Rust version,
   with `rustfmt` and `clippy`, and rustup installs it on first use.
@@ -118,6 +151,7 @@ to directly. A pull request can merge once the `gates` check passes:
 | `msrv` | Linux | The engine still builds with the `rust-version` in `Cargo.toml` |
 | `uci` | Linux | `fastchess --compliance`, and 20 self-play games that fail on any crash, illegal move or time loss |
 | `release-rules` | Linux | `cargo xtask check-release`: the version rules below, and committed evidence for search and eval changes |
+| `release-dry-run` | All release builds | The real release build and smoke test. Runs only if merging would publish a release, or the release workflows change |
 
 ```sh
 git switch -c feat/my-change
@@ -152,6 +186,12 @@ guarantee.
 
 The bump is part of the pull request, so the merge commit already contains the version its
 tag names. Until `v1.0.0`, major is unused, and `cargo xtask bump major` is what makes 1.0.0.
+
+Merging a bump publishes the release, with no further steps. `release.yml` builds every
+archive on its own operating system and runs it, tags the merge commit `v<version>`, and
+publishes the GitHub Release with the version's notes from `CHANGELOG.md`. Merges that keep
+an already published version publish nothing. Published releases are immutable, so fix a bad
+one by shipping a patch.
 
 | Command | Effect |
 |---|---|
@@ -340,7 +380,7 @@ found.
 ```
 src/             the engine: library (all chess logic) and a thin binary
 tests/           integration tests (perft suite)
-.github/         the CI gates and Dependabot configuration
+.github/         the CI gates, release workflows and Dependabot configuration
 xtask/           development tooling behind `cargo xtask`
 tools/           ladder.toml, plus installed match tooling (bin/, books/, engines/ are gitignored)
 results/         ladder and SPRT history (committed); pgn/ and logs/ hold match output (gitignored)
