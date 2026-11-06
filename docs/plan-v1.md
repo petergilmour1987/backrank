@@ -547,8 +547,9 @@ Small search ideas from the Phase 5 review, each to be tested with SPRT:
   might still be worth trying.
 - ~~When time runs out, use a partly completed iteration if its first root move finished,
   instead of discarding it.~~ Done: H1 accepted, Elo +54 [+30, +78] over 626 games at 2+0.02.
-- Don't search underpromotion captures in quiescence, and generate captures directly
-  there rather than filtering all moves.
+- ~~Don't search underpromotion captures in quiescence, and generate captures directly
+  there rather than filtering all moves.~~ Done: H1 accepted, Elo +17 [+4, +30] over 2,051
+  games at 2+0.02.
 
 The larger features:
 
