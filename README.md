@@ -52,7 +52,7 @@ estimate is probably optimistic at this fast time control. Every run is recorded
 ## Installing
 
 Prebuilt binaries are on the
-[releases page](https://github.com/petergilmour1987/backrank-chess-engine/releases). Until
+[releases page](https://github.com/petergilmour1987/backrank/releases). Until
 v1.0.0, releases are marked as pre-releases.
 
 | Archive | For |
@@ -77,8 +77,9 @@ The binaries aren't code signed yet:
 Each release includes a `SHA256SUMS` file, so you can check a download with
 `sha256sum -c SHA256SUMS --ignore-missing` (on macOS,
 `shasum -a 256 -c SHA256SUMS --ignore-missing`). To check that GitHub Actions built it from
-this repository, run
-`gh attestation verify <file> --repo petergilmour1987/backrank-chess-engine`.
+this repository, run `gh attestation verify <file> --repo petergilmour1987/backrank`. The
+repository used to be called `backrank-chess-engine` and v0.2.0 was built under that name, so
+for that release use `--repo petergilmour1987/backrank-chess-engine`.
 
 ## Files
 
@@ -151,38 +152,38 @@ aren't part of the release binaries.
 
 
 [books-link]:         https://github.com/official-stockfish/books
-[cargo-link]:         https://github.com/petergilmour1987/backrank-chess-engine/blob/main/Cargo.toml
-[changelog-link]:     https://github.com/petergilmour1987/backrank-chess-engine/blob/main/CHANGELOG.md
-[commits-link]:       https://github.com/petergilmour1987/backrank-chess-engine/commits/main
-[contributing-link]:  https://github.com/petergilmour1987/backrank-chess-engine/blob/main/CONTRIBUTING.md
-[docs-link]:          https://github.com/petergilmour1987/backrank-chess-engine/tree/main/docs
+[cargo-link]:         https://github.com/petergilmour1987/backrank/blob/main/Cargo.toml
+[changelog-link]:     https://github.com/petergilmour1987/backrank/blob/main/CHANGELOG.md
+[commits-link]:       https://github.com/petergilmour1987/backrank/commits/main
+[contributing-link]:  https://github.com/petergilmour1987/backrank/blob/main/CONTRIBUTING.md
+[docs-link]:          https://github.com/petergilmour1987/backrank/tree/main/docs
 [eval-link]:          https://www.chessprogramming.org/Simplified_Evaluation_Function
 [fastchess-link]:     https://github.com/Disservin/fastchess
-[issue-link]:         https://github.com/petergilmour1987/backrank-chess-engine/issues/new
-[ladder-link]:        https://github.com/petergilmour1987/backrank-chess-engine/blob/main/results/ladder.csv
-[license-link]:       https://github.com/petergilmour1987/backrank-chess-engine/blob/main/LICENSE
-[pipeline-link]:      https://github.com/petergilmour1987/backrank-chess-engine/actions/workflows/release.yml
+[issue-link]:         https://github.com/petergilmour1987/backrank/issues/new
+[ladder-link]:        https://github.com/petergilmour1987/backrank/blob/main/results/ladder.csv
+[license-link]:       https://github.com/petergilmour1987/backrank/blob/main/LICENSE
+[pipeline-link]:      https://github.com/petergilmour1987/backrank/actions/workflows/release.yml
 [programming-link]:   https://www.chessprogramming.org/Main_Page
-[readme-link]:        https://github.com/petergilmour1987/backrank-chess-engine/blob/main/README.md
-[releases-link]:      https://github.com/petergilmour1987/backrank-chess-engine/releases
-[results-link]:       https://github.com/petergilmour1987/backrank-chess-engine/tree/main/results
-[roadmap-link]:       https://github.com/petergilmour1987/backrank-chess-engine/blob/main/docs/plan-v1.md
+[readme-link]:        https://github.com/petergilmour1987/backrank/blob/main/README.md
+[releases-link]:      https://github.com/petergilmour1987/backrank/releases
+[results-link]:       https://github.com/petergilmour1987/backrank/tree/main/results
+[roadmap-link]:       https://github.com/petergilmour1987/backrank/blob/main/docs/plan-v1.md
 [rustup-link]:        https://rustup.rs
-[src-link]:           https://github.com/petergilmour1987/backrank-chess-engine/tree/main/src
+[src-link]:           https://github.com/petergilmour1987/backrank/tree/main/src
 [stockfish-link]:     https://stockfishchess.org
-[tests-link]:         https://github.com/petergilmour1987/backrank-chess-engine/tree/main/tests
-[tools-link]:         https://github.com/petergilmour1987/backrank-chess-engine/tree/main/tools
+[tests-link]:         https://github.com/petergilmour1987/backrank/tree/main/tests
+[tools-link]:         https://github.com/petergilmour1987/backrank/tree/main/tools
 [uci-link]:           https://backscattering.de/chess/uci/
-[usage-link]:         https://github.com/petergilmour1987/backrank-chess-engine/blob/main/docs/usage.md
-[xtask-link]:         https://github.com/petergilmour1987/backrank-chess-engine/tree/main/xtask
+[usage-link]:         https://github.com/petergilmour1987/backrank/blob/main/docs/usage.md
+[xtask-link]:         https://github.com/petergilmour1987/backrank/tree/main/xtask
 
-[commits-badge]:      https://img.shields.io/github/commits-since/petergilmour1987/backrank-chess-engine/latest?include_prereleases&style=for-the-badge&labelColor=000000&color=ff0000
+[commits-badge]:      https://img.shields.io/github/commits-since/petergilmour1987/backrank/latest?include_prereleases&style=for-the-badge&labelColor=000000&color=ff0000
 [deps-badge]:         https://img.shields.io/badge/engine%20dependencies-none-success?style=for-the-badge&labelColor=000000
-[downloads-badge]:    https://img.shields.io/github/downloads/petergilmour1987/backrank-chess-engine/total?style=for-the-badge&labelColor=000000&color=ff0000
-[ladder-badge]:       https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fpetergilmour1987%2Fbackrank-chess-engine%2Fmain%2Fresults%2Fstate.toml&query=%24.current&style=for-the-badge&labelColor=000000&label=stockfish%20ladder&color=ff0000
-[license-badge]:      https://img.shields.io/github/license/petergilmour1987/backrank-chess-engine?style=for-the-badge&labelColor=000000&label=license&color=success
-[pipeline-badge]:     https://img.shields.io/github/actions/workflow/status/petergilmour1987/backrank-chess-engine/release.yml?branch=main&style=for-the-badge&labelColor=000000&label=release%20pipeline&logo=github
+[downloads-badge]:    https://img.shields.io/github/downloads/petergilmour1987/backrank/total?style=for-the-badge&labelColor=000000&color=ff0000
+[ladder-badge]:       https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fpetergilmour1987%2Fbackrank%2Fmain%2Fresults%2Fstate.toml&query=%24.current&style=for-the-badge&labelColor=000000&label=stockfish%20ladder&color=ff0000
+[license-badge]:      https://img.shields.io/github/license/petergilmour1987/backrank?style=for-the-badge&labelColor=000000&label=license&color=success
+[pipeline-badge]:     https://img.shields.io/github/actions/workflow/status/petergilmour1987/backrank/release.yml?branch=main&style=for-the-badge&labelColor=000000&label=release%20pipeline&logo=github
 [platforms-badge]:    https://img.shields.io/badge/platforms-macOS%20%7C%20Linux%20%7C%20Windows-ff0000?style=for-the-badge&labelColor=000000
-[release-badge]:      https://img.shields.io/github/v/release/petergilmour1987/backrank-chess-engine?include_prereleases&style=for-the-badge&labelColor=000000&label=latest%20release&color=ff0000
-[rust-badge]:         https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fpetergilmour1987%2Fbackrank-chess-engine%2Fmain%2FCargo.toml&query=%24.package%5B%27rust-version%27%5D&suffix=%2B&style=for-the-badge&labelColor=000000&label=rust&logo=rust&color=ff0000
+[release-badge]:      https://img.shields.io/github/v/release/petergilmour1987/backrank?include_prereleases&style=for-the-badge&labelColor=000000&label=latest%20release&color=ff0000
+[rust-badge]:         https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fpetergilmour1987%2Fbackrank%2Fmain%2FCargo.toml&query=%24.package%5B%27rust-version%27%5D&suffix=%2B&style=for-the-badge&labelColor=000000&label=rust&logo=rust&color=ff0000
 [uci-badge]:          https://img.shields.io/badge/protocol-UCI-ff0000?style=for-the-badge&labelColor=000000

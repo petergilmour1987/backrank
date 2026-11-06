@@ -13,4 +13,4 @@ The binaries aren't code signed yet:
 
 To check a download, run `sha256sum -c SHA256SUMS --ignore-missing` (on macOS,
 `shasum -a 256 -c SHA256SUMS --ignore-missing`). To check that GitHub Actions built it from
-this repository, run `gh attestation verify <file> --repo petergilmour1987/backrank-chess-engine`.
+this repository, run `gh attestation verify <file> --repo petergilmour1987/backrank`.
