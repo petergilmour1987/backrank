@@ -114,7 +114,7 @@ jobs:
             /^## \[/ { found = 0 }
             found
           ' CHANGELOG.md > notes.md
-          grep -q '[^[:space:]]' notes.md || { echo "::error::no notes for $VERSION in CHANGELOG.md"; exit 1; }
+          grep -v '^#' notes.md | grep -q '[^[:space:]]' || { echo "::error::no notes for $VERSION in CHANGELOG.md"; exit 1; }
           cat .github/release-footer.md >> notes.md
       # A draft first, because a published immutable release can't take new assets.
       - name: Publish

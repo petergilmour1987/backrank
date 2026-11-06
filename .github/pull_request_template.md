@@ -10,6 +10,7 @@ If this changes what ships, run `cargo xtask bump <level>` as the branch's last 
 - minor: meant to alter play, or adds a feature
 - patch: a bug fix, speed-up or packaging fix
 - no bump: docs, results rows, xtask, CI or tests only
+A merged bump publishes a GitHub Release, using the CHANGELOG.md notes.
 -->
 
 Level:
