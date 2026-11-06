@@ -382,8 +382,7 @@ impl<'a> Searcher<'a> {
 
     /// The value of the current position once captures have played out: the side to move
     /// may "stand pat" on the static evaluation, or try a capture (or queen promotion) to
-    /// do better. This keeps the search from stopping in the middle of an exchange. A side
-    /// in check must escape instead, so captures that give check can't be misjudged.
+    /// do better. This keeps the search from stopping in the middle of an exchange.
     fn quiescence(&mut self, ply: usize, mut alpha: i32, beta: i32) -> i32 {
         self.pv.clear(ply);
         self.nodes += 1;
@@ -394,41 +393,25 @@ impl<'a> Searcher<'a> {
         if self.is_draw() {
             return 0;
         }
-        if ply >= MAX_PLY - 1 {
-            return eval::evaluate(self.pos);
+        let stand_pat = eval::evaluate(self.pos);
+        if stand_pat >= beta || ply >= MAX_PLY - 1 {
+            return stand_pat;
         }
-
-        // In check there is no standing pat, because doing nothing isn't an option: every
-        // escape is searched, and having none is checkmate.
-        let in_check = self.pos.in_check();
-        let mut best = -INFINITY;
-        if !in_check {
-            best = eval::evaluate(self.pos);
-            if best >= beta {
-                return best;
-            }
-            alpha = alpha.max(best);
-        }
+        alpha = alpha.max(stand_pat);
 
         let mut all = MoveList::new();
         movegen::generate(self.pos, &mut all);
-        let moves = if in_check {
-            all
-        } else {
-            let mut tactical = MoveList::new();
-            for &m in all.iter() {
-                if m.is_capture() || m.promotion_piece() == Some(PieceType::Queen) {
-                    tactical.push(m);
-                }
+        let mut tactical = MoveList::new();
+        for &m in all.iter() {
+            if m.is_capture() || m.promotion_piece() == Some(PieceType::Queen) {
+                tactical.push(m);
             }
-            tactical
-        };
-        let mut legal = 0;
-        for m in Ordered::new(self.pos, moves, None) {
+        }
+        let mut best = stand_pat;
+        for m in Ordered::new(self.pos, tactical, None) {
             if !self.pos.make_move(m) {
                 continue;
             }
-            legal += 1;
             let score = -self.quiescence(ply + 1, -beta, -alpha);
             self.pos.unmake_move();
             if self.aborted {
@@ -444,9 +427,6 @@ impl<'a> Searcher<'a> {
                     }
                 }
             }
-        }
-        if in_check && legal == 0 {
-            return -MATE + ply as i32;
         }
         best
     }

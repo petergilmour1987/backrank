@@ -541,8 +541,10 @@ implement → cargo test (+ --release -- --ignored if movegen changed)
 
 Small search ideas from the Phase 5 review, each to be tested with SPRT:
 
-- In quiescence, don't stand pat when in check: search all evasions, and score mate if
-  there are none.
+- ~~In quiescence, don't stand pat when in check: search all evasions, and score mate if
+  there are none.~~ Tried and reverted: H0 accepted, Elo -25 [-44, -6] over 1,005 games at
+  2+0.02. It costs more depth than its accuracy is worth; a version limited to a few plies
+  might still be worth trying.
 - When time runs out, use a partly completed iteration if its first root move finished,
   instead of discarding it.
 - Don't search underpromotion captures in quiescence, and generate captures directly
