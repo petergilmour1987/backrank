@@ -1,6 +1,6 @@
 # Changelog
 
-Notable changes to Backrank. The version rules are in the README's development workflow.
+Notable changes to Backrank. The version rules are in [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## [Unreleased]
 

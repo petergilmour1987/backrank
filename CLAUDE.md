@@ -25,7 +25,9 @@ tools/ladder.toml   # the Stockfish difficulty ladder (committed)
 tools/              # bin/, books/, engines/ are installed by `cargo xtask setup` (gitignored)
 results/            # ladder.csv, sprt.csv, state.toml, calibration.toml are committed history;
                     # pgn/ and logs/ hold match output (gitignored)
-docs/               # plans and design docs — v1: docs/plan-v1.md, releases: docs/plan-release.md
+docs/               # usage.md, plus plans and design docs — v1: plan-v1.md, releases: plan-release.md
+CONTRIBUTING.md     # requirements, checks, development workflow, version rules, match tooling
+README.md           # the front page: overview, install, compile, terms; detail lives in the two above
 .github/workflows/  # ci.yml: the gates on every pull request to main; release.yml and build.yml:
                     # merging a new version builds, tags and publishes its GitHub Release
 ```
@@ -59,7 +61,8 @@ cargo xtask verify-binary PATH  # run a built binary: right version, legal move
 cargo run --release -- perft N [startpos | fen F] [moves ...]  # perft split by first move
 ```
 
-Keep `README.md`'s usage guide current when commands or options are added or change.
+Keep the usage docs current when commands or options are added or change: `docs/usage.md` for
+the engine, and `CONTRIBUTING.md` for `cargo xtask` and the development workflow.
 
 Before declaring work done: `cargo fmt --all --check`,
 `cargo clippy --workspace --all-targets -- -D warnings` and `cargo test --workspace` must all
@@ -76,7 +79,7 @@ pass. Run them locally before pushing: pull requests must also pass them in CI.
   because `results/*.csv` labels each run with a commit hash that must stay on `main`.
 - If a pull request changes what ships (`src/`, root `Cargo.toml`, `rust-toolchain.toml`,
   `.cargo/`), its last commit is `cargo xtask bump <level>`, with notes in `CHANGELOG.md`
-  under `[Unreleased]`. The README has the level rules. `check-release` enforces this.
+  under `[Unreleased]`. `CONTRIBUTING.md` has the level rules. `check-release` enforces this.
 - Merging a bump publishes a GitHub Release automatically, and published releases are immutable.
   Fix a bad release by shipping a patch, never by moving a tag.
 - SPRT and ladder runs stay local; don't try to run them in CI. Search and eval changes must
