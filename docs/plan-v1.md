@@ -539,7 +539,9 @@ implement → cargo test (+ --release -- --ignored if movegen changed)
 
 ## 9. After v1 (v2 roadmap, in expected value order)
 
-Small search ideas from the Phase 5 review, each to be tested with SPRT:
+Small search ideas from the Phase 5 review, each tested with SPRT. With the two kept, the
+ladder gives 58.5% vs `sf-elo2000`, Elo +60 [+17, +105], an estimated 2060 (commit `42848c3`).
+That is up from 54.6% and 2032, though the intervals overlap, and short of promotion:
 
 - ~~In quiescence, don't stand pat when in check: search all evasions, and score mate if
   there are none.~~ Tried and reverted: H0 accepted, Elo -25 [-44, -6] over 1,005 games at

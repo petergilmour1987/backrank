@@ -21,3 +21,4 @@ date,commit,bench_nodes,rung,rung_rating,rung_bound,stockfish,tc,games,wins,draw
 2026-11-05 21:13:56,e6defc3,,sf-elo1800,1800,exact,Stockfish 19,8+0.08,240,172,8,60,0,73.3,176,130,228,100.0,1976,1930,2028,0,0,0,0,401303421398722502,promoted to sf-elo1900,Phase 5.7: piece-square tables
 2026-11-05 21:25:46,e6defc3,,sf-elo1900,1900,exact,Stockfish 19,8+0.08,240,142,11,87,0,61.5,81,38,127,100.0,1981,1938,2027,0,0,0,0,870562263569401564,promoted to sf-elo2000,Phase 5.7: piece-square tables
 2026-11-05 21:37:57,e6defc3,,sf-elo2000,2000,exact,Stockfish 19,8+0.08,240,124,14,102,0,54.6,32,-11,75,92.8,2032,1989,2075,0,0,0,0,8601181121363237175,stayed,Phase 5.7: piece-square tables
+2026-11-06 00:57:22,42848c3,,sf-elo2000,2000,exact,Stockfish 19,8+0.08,240,138,5,97,0,58.5,60,17,105,99.6,2060,2017,2105,0,0,0,0,6969353303045033715,stayed,"Phase 5 review ideas: partial iterations, tactical generator"

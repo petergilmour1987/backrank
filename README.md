@@ -6,7 +6,7 @@ developed against Stockfish on a difficulty ladder that gets harder as Backrank 
 **Status:** in development towards v1. Backrank plays real chess: alpha-beta search with
 iterative deepening, quiescence search, move ordering and time management, evaluating
 material and piece placement. Against Stockfish's strength-limited settings at 8+0.08, it
-beats `UCI_Elo` 1900 and is about even with 2000. That rating is an estimate and probably
+beats `UCI_Elo` 1900 and scores 58.5% against 2000. That rating is an estimate and probably
 optimistic at this fast time control; see [`results/ladder.csv`](results/ladder.csv).
 The roadmap and progress are in [`docs/plan-v1.md`](docs/plan-v1.md).
 
