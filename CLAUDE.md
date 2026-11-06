@@ -26,7 +26,8 @@ tools/              # bin/, books/, engines/ are installed by `cargo xtask setup
 results/            # ladder.csv, sprt.csv, state.toml, calibration.toml are committed history;
                     # pgn/ and logs/ hold match output (gitignored)
 docs/               # plans and design docs — v1: docs/plan-v1.md, releases: docs/plan-release.md
-.github/workflows/  # ci.yml: the gates on every pull request to main
+.github/workflows/  # ci.yml: the gates on every pull request to main; release.yml and build.yml:
+                    # merging a new version builds, tags and publishes its GitHub Release
 ```
 
 Keep `main.rs` thin: no chess logic in the binary. Anything worth testing lives in
@@ -76,6 +77,8 @@ pass. Run them locally before pushing: pull requests must also pass them in CI.
 - If a pull request changes what ships (`src/`, root `Cargo.toml`, `rust-toolchain.toml`,
   `.cargo/`), its last commit is `cargo xtask bump <level>`, with notes in `CHANGELOG.md`
   under `[Unreleased]`. The README has the level rules. `check-release` enforces this.
+- Merging a bump publishes a GitHub Release automatically, and published releases are immutable.
+  Fix a bad release by shipping a patch, never by moving a tag.
 - SPRT and ladder runs stay local; don't try to run them in CI. Search and eval changes must
   commit their `results/` rows, or carry the `no-strength-test` label if they can't alter play.
 - Nothing publishes to a package manager, and `publish = false` stays. That work is deferred

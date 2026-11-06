@@ -1,0 +1,134 @@
+name: Release
+
+# When a merge to main carries a version with no published release, this builds and tests
+# every archive, tags the merge commit, and publishes the GitHub Release. Merges that keep a
+# published version stop at `plan`.
+#
+# It's all one workflow because a tag pushed with GITHUB_TOKEN doesn't start other workflows.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Releases run one at a time, and a newer merge never cancels one under way.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.plan.outputs.version }}
+      release: ${{ steps.plan.outputs.release }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
+          [ -n "$version" ] || { echo "::error::no version in Cargo.toml"; exit 1; }
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          tag="v$version"
+
+          if [ "$(gh release view "$tag" --json isDraft --jq .isDraft 2>/dev/null)" = "false" ]; then
+            echo "$tag is already published: nothing to do."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # The last line is the peeled commit when the tag is annotated.
+          tagged=$(git ls-remote origin "refs/tags/$tag" "refs/tags/$tag^{}" | tail -1 | cut -f1)
+          if [ -n "$tagged" ] && [ "$tagged" != "$GITHUB_SHA" ]; then
+            echo "::warning::$tag is on $tagged, not this commit. Binaries from this commit must not go on that tag: re-run its release, or ship the next patch version."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "Releasing $tag from $GITHUB_SHA."
+          echo "release=true" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: plan
+    if: needs.plan.outputs.release == 'true'
+    uses: ./.github/workflows/build.yml
+
+  tag:
+    needs: [plan, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: |
+          tag="v$VERSION"
+          # Already there when a failed run is re-run; `plan` checked it's on this commit.
+          if git ls-remote --exit-code origin "refs/tags/$tag" > /dev/null; then
+            echo "$tag already exists."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$tag" -m "Backrank $VERSION" "$GITHUB_SHA"
+          git push origin "$tag"
+
+  release:
+    needs: [plan, tag]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+      artifact-metadata: write
+    env:
+      VERSION: ${{ needs.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: archive-*
+          merge-multiple: true
+          path: dist
+      - name: Write the checksums
+        working-directory: dist
+        run: |
+          ls -la
+          test "$(ls | wc -l)" -eq 5 || { echo "::error::expected 5 archives"; exit 1; }
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
+        with:
+          subject-path: dist/*
+      - name: Write the release notes
+        run: |
+          awk -v heading="## [$VERSION]" '
+            index($0, heading) == 1 { found = 1; next }
+            /^## \[/ { found = 0 }
+            found
+          ' CHANGELOG.md > notes.md
+          grep -q '[^[:space:]]' notes.md || { echo "::error::no notes for $VERSION in CHANGELOG.md"; exit 1; }
+          cat .github/release-footer.md >> notes.md
+      # A draft first, because a published immutable release can't take new assets.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="v$VERSION"
+          case "$VERSION" in
+            0.*) channel=(--prerelease) ;;
+            *) channel=() ;;
+          esac
+          if ! gh release view "$tag" > /dev/null 2>&1; then
+            gh release create "$tag" --verify-tag --draft --title "Backrank $VERSION" \
+              --notes-file notes.md "${channel[@]}"
+          fi
+          gh release upload "$tag" dist/* --clobber
+          gh release edit "$tag" --draft=false
