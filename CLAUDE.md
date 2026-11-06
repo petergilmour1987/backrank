@@ -25,7 +25,8 @@ tools/ladder.toml   # the Stockfish difficulty ladder (committed)
 tools/              # bin/, books/, engines/ are installed by `cargo xtask setup` (gitignored)
 results/            # ladder.csv, sprt.csv, state.toml, calibration.toml are committed history;
                     # pgn/ and logs/ hold match output (gitignored)
-docs/               # plans and design docs — v1 plan: docs/plan-v1.md
+docs/               # plans and design docs — v1: docs/plan-v1.md, releases: docs/plan-release.md
+.github/workflows/  # ci.yml: the gates on every pull request to main
 ```
 
 Keep `main.rs` thin: no chess logic in the binary. Anything worth testing lives in
@@ -57,13 +58,25 @@ Keep `README.md`'s usage guide current when commands or options are added or cha
 
 Before declaring work done: `cargo fmt --all --check`,
 `cargo clippy --workspace --all-targets -- -D warnings` and `cargo test --workspace` must all
-pass. Run them locally: the GitHub workflow is manual-only for now, to save Actions minutes.
+pass. Run them locally before pushing: pull requests must also pass them in CI.
 
 `xtask` may use crates (clap, anyhow, sha2); the `backrank` crate itself is std-only.
 
+## Git workflow
+
+- Never commit to `main`: it is protected, and everything reaches it through a pull request.
+  Work on a short-lived branch named `feat/`, `fix/`, `docs/`, `ci/` or `chore/`.
+- A pull request can merge once the `gates` check passes (`.github/workflows/ci.yml`).
+- Merge with `gh pr merge --merge` (or `--auto --merge`). Squash and rebase are disabled,
+  because `results/*.csv` labels each run with a commit hash that must stay on `main`.
+- SPRT and ladder runs stay local; don't try to run them in CI.
+- Nothing publishes to a package manager, and `publish = false` stays. That work is deferred
+  (`docs/plan-release.md` §4).
+
 ## Conventions
 
-- Rust edition 2024, stable toolchain (`rust-toolchain.toml`).
+- Rust edition 2024. The toolchain is pinned in `rust-toolchain.toml`; update it in its own
+  pull request.
 - No `unsafe` unless a measured performance win justifies it; document the invariant
   with a `// SAFETY:` comment.
 - The `backrank` crate uses only the standard library; tooling dependencies go in `xtask`.
@@ -85,10 +98,10 @@ pass. Run them locally: the GitHub workflow is manual-only for now, to save Acti
 
 Phases 0 to 5 are done (tooling, core types, move generation, UCI, Stockfish ladder, search
 and evaluation); Backrank is on the `sf-elo2000` rung. Next is Phase 6 (hardening and
-v1.0.0). For any search or eval change, follow the development loop in plan §8: tests, then
-`caffeinate -i cargo xtask sprt`, then `caffeinate -i cargo xtask ladder --note ...`, then
-commit. Commit the code first, so runs are labelled with a clean hash, and the `results/`
-rows afterwards. The ladder builds the working tree, so don't leave other edits in it when
+v1.0.0). For any search or eval change, follow the development loop in plan §8 on a branch:
+tests, then `caffeinate -i cargo xtask sprt --base main`, then
+`caffeinate -i cargo xtask ladder --note ...`, then a pull request. Commit the code first, so
+runs are labelled with a clean hash, and the `results/` rows afterwards. The ladder builds the working tree, so don't leave other edits in it when
 a run starts. Stage explicit paths when committing. After changing move
 generation or make/unmake, also run `cargo test --release --test perft -- --ignored`, and
 use `cargo xtask perft-diff` to localise any mismatch. The v1 roadmap (phases, decisions,

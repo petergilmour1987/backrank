@@ -1,24 +1,100 @@
 name: CI
 
-# Disabled to save Actions minutes: runs only when started by hand from the Actions tab
-# (or `gh workflow run CI`). To re-enable on every push and PR, replace this trigger with:
-#   push:
-#     branches: [main]
-#   pull_request:
+# The gates every pull request to main must pass. See docs/plan-release.md.
 on:
-  workflow_dispatch:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# A new push to a pull request replaces the run already going for it.
+concurrency:
+  group: ci-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  check:
-    runs-on: ubuntu-latest
+  lint:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v7
-      # rustup installs the toolchain and components pinned in rust-toolchain.toml.
-      - run: rustup show
-      - uses: Swatinem/rust-cache@v2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # Installs the toolchain and components pinned in rust-toolchain.toml.
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
       - run: cargo fmt --all --check
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
-      - run: cargo test --locked --workspace
+
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            packages: --workspace
+          - os: macos-15
+            packages: --workspace
+          # The match tooling in xtask is macOS and Linux only.
+          - os: windows-2025
+            packages: -p backrank
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - run: cargo test --locked ${{ matrix.packages }}
+
+  deep-perft:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - run: cargo test --locked --release --test perft -- --ignored
+
+  # Keeps `rust-version` in Cargo.toml true for anyone building from source.
+  msrv:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install 1.88 --profile minimal
+      - run: cargo +1.88 check --locked -p backrank
+
+  # How the engine behaves to a GUI: protocol compliance, then a short self-play that fails
+  # on any crash, illegal move or time loss. Strength tests stay local (docs/plan-release.md).
+  uci:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - run: cargo xtask setup --skip-stockfish
+      - run: cargo build --locked --release -p backrank
+      - run: tools/bin/fastchess --compliance target/release/backrank
+      - run: cargo xtask selfplay --games 20 --tc 2+0.05 --concurrency 2
+
+  # The one check the branch rule on main requires, so jobs can be added or skipped here
+  # without changing the rule.
+  gates:
+    if: always()
+    needs: [lint, test, deep-perft, msrv, uci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "job results: $RESULTS"
+          for result in $RESULTS; do
+            case "$result" in
+              success|skipped) ;;
+              *) echo "::error::a gate did not pass ($result)"; exit 1 ;;
+            esac
+          done

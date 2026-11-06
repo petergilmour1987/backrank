@@ -12,8 +12,8 @@ The roadmap and progress are in [`docs/plan-v1.md`](docs/plan-v1.md).
 
 ## Requirements
 
-- **Rust**, via [rustup](https://rustup.rs). `rust-toolchain.toml` selects the stable
-  toolchain with `rustfmt` and `clippy`, and rustup installs it on first use.
+- **Rust**, via [rustup](https://rustup.rs). `rust-toolchain.toml` pins the Rust version,
+  with `rustfmt` and `clippy`, and rustup installs it on first use.
 - **Stockfish**, for the match tooling: `brew install stockfish` on macOS, or any build
   on your `PATH`.
 - **`curl`, `tar` and `unzip`**, used by `cargo xtask setup` (preinstalled on macOS).
@@ -103,8 +103,34 @@ after any change to move generation (they take a few seconds in release mode):
 cargo test --release --test perft -- --ignored
 ```
 
-The GitHub Actions workflow runs the same checks, but for now it only runs when started by
-hand (Actions tab, or `gh workflow run CI`).
+## Development workflow
+
+`main` is always releasable, and all work happens on short-lived branches (`feat/`, `fix/`,
+`docs/`, `ci/` or `chore/`) that reach `main` through a pull request. `main` can't be pushed
+to directly. A pull request can merge once the `gates` check passes:
+
+| Gate | Runs on | Checks |
+|---|---|---|
+| `lint` | Linux | `cargo fmt --all --check` and `cargo clippy` with warnings as errors |
+| `test` | Linux, macOS, Windows | `cargo test` (only the engine on Windows, as the match tooling is macOS and Linux only) |
+| `deep-perft` | Linux | The ignored perft tests, in release mode |
+| `msrv` | Linux | The engine still builds with the `rust-version` in `Cargo.toml` |
+| `uci` | Linux | `fastchess --compliance`, and 20 self-play games that fail on any crash, illegal move or time loss |
+
+```sh
+git switch -c feat/my-change
+# implement, test and commit
+git push -u origin HEAD
+gh pr create --fill
+gh pr merge --auto --merge      # merges by itself once the gates pass
+```
+
+Pull requests merge with a merge commit, never a squash or rebase. `results/*.csv` labels
+each run with a commit hash, and those commits must stay on `main`. Use
+`git log --first-parent main` for a one-line-per-pull-request history.
+
+SPRT and ladder runs stay local, because timed matches on shared CI machines are too noisy.
+[`docs/plan-release.md`](docs/plan-release.md) has the full plan.
 
 ## Match tooling
 
@@ -135,6 +161,7 @@ missing, broken or no longer matches the pinned version.
 |---|---|
 | `--force` | Reinstall everything. Use it to pick up a newer Stockfish after upgrading. |
 | `--stockfish <path>` | Snapshot a specific Stockfish binary instead of the one on `PATH`. |
+| `--skip-stockfish` | Skip the Stockfish snapshot, for machines that only run Backrank against itself, such as CI. |
 
 ### Smoke test
 
@@ -286,6 +313,7 @@ found.
 ```
 src/             the engine: library (all chess logic) and a thin binary
 tests/           integration tests (perft suite)
+.github/         the CI gates and Dependabot configuration
 xtask/           development tooling behind `cargo xtask`
 tools/           ladder.toml, plus installed match tooling (bin/, books/, engines/ are gitignored)
 results/         ladder and SPRT history (committed); pgn/ and logs/ hold match output (gitignored)

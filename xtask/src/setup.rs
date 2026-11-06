@@ -52,12 +52,18 @@ pub struct Args {
     /// Stockfish binary to snapshot: a path, or a command name looked up on PATH.
     #[arg(long, default_value = "stockfish")]
     stockfish: String,
+    /// Skip the Stockfish snapshot, for machines that only run Backrank against itself,
+    /// such as CI.
+    #[arg(long, conflicts_with = "stockfish")]
+    skip_stockfish: bool,
 }
 
 pub fn run(args: &Args) -> Result<()> {
     install_fastchess(args.force)?;
     install_book(args.force)?;
-    snapshot_stockfish(&args.stockfish, args.force)?;
+    if !args.skip_stockfish {
+        snapshot_stockfish(&args.stockfish, args.force)?;
+    }
     println!("setup complete");
     Ok(())
 }
