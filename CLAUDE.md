@@ -107,15 +107,14 @@ pass. Run them locally before pushing: pull requests must also pass them in CI.
 
 ## Status
 
-Phases 0 to 5 are done (tooling, core types, move generation, UCI, Stockfish ladder, search
-and evaluation); Backrank is on the `sf-elo2000` rung. The branch, gate and GitHub Release
-process (`docs/plan-release.md`) is in place. Next is Phase 6 (hardening and v1.0.0). For any search or eval change, follow the development loop in plan §8 on a branch:
-tests, then `caffeinate -i cargo xtask sprt`, then
-`caffeinate -i cargo xtask ladder --note ...`, then `cargo xtask bump <level>` and a pull
-request. Commit the code first, so
-runs are labelled with a clean hash, and the `results/` rows afterwards. The ladder builds the
-working tree, so don't leave other edits in it when a run starts. Stage explicit paths when
-committing. After changing move generation or make/unmake, also run `cargo test --release --test perft -- --ignored`, and
-use `cargo xtask perft-diff` to localise any mismatch. The v1 roadmap (phases, decisions,
-Stockfish ladder, UCI spec, perft suite) is in `docs/plan-v1.md`; follow its phase order
-and exit checks.
+Phases 0 to 5 are done (tooling, core types, move generation, UCI, Stockfish ladder, search and
+evaluation); Backrank is on the `sf-elo2000` rung. The branch, gate and GitHub Release process
+(`docs/plan-release.md`) is in place. Next is Phase 6 (hardening and v1.0.0). For any search or
+eval change, follow the development loop in plan §8 on a branch: tests, then `caffeinate -i
+cargo xtask sprt`, then `caffeinate -i cargo xtask ladder --note ...`, then `cargo xtask bump
+<level>` and a pull request. Commit the code first, so runs are labelled with a clean hash, and
+the `results/` rows afterwards. The ladder builds the working tree, so don't leave other edits
+in it when a run starts. Stage explicit paths when committing. After changing move generation
+or make/unmake, also run `cargo test --release --test perft -- --ignored`, and use `cargo xtask
+perft-diff` to localise any mismatch. The v1 roadmap (phases, decisions, Stockfish ladder, UCI
+spec, perft suite) is in `docs/plan-v1.md`; follow its phase order and exit checks.
