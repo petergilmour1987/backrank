@@ -23,3 +23,4 @@ pub const ENGINE_VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// Engine author, as reported to GUIs.
 pub const ENGINE_AUTHOR: &str = "petergilmour1987";
+// Test only: a shipped change with no version bump.
