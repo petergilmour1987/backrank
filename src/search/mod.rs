@@ -2,8 +2,8 @@
 //! move ordering and time management.
 //!
 //! The search goes one ply deeper each iteration and reports after each. An iteration that
-//! is stopped part way is thrown away, so the move played always comes from a completed
-//! search. Depth 1 is never stopped, so there is always a move.
+//! is stopped before its first root move finishes is thrown away. Depth 1 is never
+//! stopped, so there is always a move.
 
 mod ordering;
 
@@ -205,6 +205,14 @@ impl PvTable {
     }
 }
 
+/// What searching the root moves found.
+struct RootResult {
+    best: Option<Move>,
+    score: i32,
+    /// Whether at least the first move was searched in full.
+    first_finished: bool,
+}
+
 struct Searcher<'a> {
     pos: &'a mut Position,
     limits: &'a Limits,
@@ -265,19 +273,24 @@ impl<'a> Searcher<'a> {
         for depth in 1..=max_depth {
             self.can_abort = depth > 1;
             self.seldepth = 0;
-            let (root_best, score) = self.search_root(depth);
-            if self.aborted {
+            let root = self.search_root(depth);
+            // A stopped iteration still counts if the previous best move, tried first, was
+            // searched in full: any move that then beat it has an exact, better score.
+            if self.aborted && !root.first_finished {
                 break;
             }
-            best = root_best;
+            best = root.best;
             report(&Info {
                 depth,
                 seldepth: self.seldepth as u32,
-                score: Score::from_search(score),
+                score: Score::from_search(root.score),
                 nodes: self.nodes,
                 time: self.limits.start.elapsed(),
                 pv: self.pv.root_line(),
             });
+            if self.aborted {
+                break;
+            }
             self.prev_pv = self.pv.root_line();
             // Between iterations, stop for any reason the node checks would.
             if self.stop.load(Ordering::Relaxed)
@@ -292,13 +305,14 @@ impl<'a> Searcher<'a> {
     }
 
     /// Searches every root move and returns the best one with its score. If the search is
-    /// stopped part way, the result is incomplete and must not be used.
-    fn search_root(&mut self, depth: u32) -> (Option<Move>, i32) {
+    /// stopped part way, the result covers only the moves that finished.
+    fn search_root(&mut self, depth: u32) -> RootResult {
         self.pv.clear(0);
         let mut moves = MoveList::new();
         movegen::generate(self.pos, &mut moves);
         let mut alpha = -INFINITY;
         let mut best = None;
+        let mut first_finished = false;
         let pv_move = self.prev_pv.first().copied();
         for m in Ordered::new(self.pos, moves, pv_move) {
             if !self.pos.make_move(m) {
@@ -309,13 +323,18 @@ impl<'a> Searcher<'a> {
             if self.aborted {
                 break;
             }
+            first_finished = true;
             if score > alpha {
                 alpha = score;
                 best = Some(m);
                 self.pv.update(0, m);
             }
         }
-        (best, alpha)
+        RootResult {
+            best,
+            score: alpha,
+            first_finished,
+        }
     }
 
     /// The fail-soft negamax value of the current position, `ply` moves from the root,

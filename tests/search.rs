@@ -177,6 +177,30 @@ fn stopping_mid_search_plays_the_last_completed_iteration() {
 }
 
 #[test]
+fn stopping_at_any_point_gives_a_consistent_result() {
+    // Node limits stop the search at many different points in an iteration.
+    let fen = MIDDLEGAMES[1];
+    for nodes in (500..40_000).step_by(1_500) {
+        let mut pos = Position::from_fen(fen).unwrap();
+        let limits = Limits {
+            nodes: Some(nodes),
+            ..Limits::default()
+        };
+        let mut last = None;
+        let best = search(&mut pos, &limits, &AtomicBool::new(false), &mut |i| {
+            last = Some(i.clone())
+        });
+        let last = last.unwrap();
+        assert_eq!(last.pv.first().copied(), best, "at {nodes} nodes");
+        assert_pv_is_legal(fen, &last);
+        assert!(
+            !matches!(last.score, Score::Mate(_)),
+            "at {nodes} nodes: {last:?}"
+        );
+    }
+}
+
+#[test]
 fn check_heavy_positions_search_safely() {
     // Queens on an open board give long chains of checks, which the check extension
     // follows. This must finish and leave the position intact.
