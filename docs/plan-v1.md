@@ -540,6 +540,7 @@ implement → cargo test (+ --release -- --ignored if movegen changed)
           → cargo xtask sprt                      # did it gain? (self-play)
           → cargo xtask ladder                     # how strong vs Stockfish now?
           → commit the results/ rows
+          → cargo xtask bump <level>
           → open a pull request; merge once the gates pass
 ```
 

@@ -25,6 +25,7 @@ The roadmap and progress are in [`docs/plan-v1.md`](docs/plan-v1.md).
 ```sh
 cargo build --release            # optimised build: target/release/backrank
 cargo run --release              # run the engine in UCI mode
+cargo run --release -- --version # print the version
 ```
 
 ### Using it as a UCI engine

@@ -63,6 +63,11 @@ pub fn run(args: &Args) -> Result<()> {
     };
     let base_label = engine::git(&["rev-parse", "--short", &format!("{base_ref}^{{commit}}")])
         .with_context(|| format!("{base_ref} is not a commit"))?;
+    ensure!(
+        args.base.is_some() || base_label != new_label,
+        "the code is the same as main, so this would test {new_label} against itself: \
+         change something, or pass --base to run it anyway"
+    );
     let base = base_binary(&base_label)?;
     // Fail fast on a base from before the UCI loop existed, or a broken cached build.
     for (name, binary) in [("new", &new), ("base", &base)] {

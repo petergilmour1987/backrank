@@ -18,6 +18,9 @@ const UNRELEASED: &str = "## [Unreleased]";
 /// Long enough for any reply on a slow CI machine; a stuck engine fails instead of hanging.
 const VERIFY_TIMEOUT: Duration = Duration::from_secs(60);
 
+/// A real engine says far less than this to `uci` or `go depth 8`; more means it's stuck.
+const MAX_REPLY_LINES: usize = 10_000;
+
 /// Which part of the version to raise.
 #[derive(Clone, Copy, clap::ValueEnum)]
 pub enum Level {
@@ -120,12 +123,20 @@ fn section_range(changelog: &str, heading: &str) -> Option<(usize, usize)> {
     start.map(|from| (from, changelog.len()))
 }
 
+/// Whether a changelog section says anything, beyond headings such as `### Added`.
+fn has_notes(section: &str) -> bool {
+    section
+        .lines()
+        .map(str::trim)
+        .any(|line| !line.is_empty() && !line.starts_with('#'))
+}
+
 /// `changelog` with a heading for `version` added, so the unreleased notes now sit under it.
 fn release_changelog(changelog: &str, version: Version, date: &str) -> Result<String> {
     let (start, end) = section_range(changelog, UNRELEASED)
         .with_context(|| format!("CHANGELOG.md has no `{UNRELEASED}` heading"))?;
     ensure!(
-        !changelog[start..end].trim().is_empty(),
+        has_notes(&changelog[start..end]),
         "CHANGELOG.md has nothing under `{UNRELEASED}`: write the release notes first"
     );
     Ok(format!(
@@ -169,8 +180,8 @@ pub fn bump(args: &BumpArgs) -> Result<()> {
     ensure!(dirty.is_empty(), "commit or stash these first:\n{dirty}");
 
     let manifest_path = paths::root().join("Cargo.toml");
-    let manifest = std::fs::read_to_string(&manifest_path)?;
-    let current = package_version(&manifest)?;
+    let original_manifest = std::fs::read_to_string(&manifest_path)?;
+    let current = package_version(&original_manifest)?;
     let base = package_version(&engine::git(&["show", &format!("{BASE}:Cargo.toml")])?)?;
     ensure!(
         current == base,
@@ -180,13 +191,61 @@ pub fn bump(args: &BumpArgs) -> Result<()> {
     let next = base.bumped(args.level);
 
     let changelog_path = paths::root().join("CHANGELOG.md");
-    let changelog = std::fs::read_to_string(&changelog_path).context("can't read CHANGELOG.md")?;
+    let original_changelog =
+        std::fs::read_to_string(&changelog_path).context("can't read CHANGELOG.md")?;
     let date = time::date_time();
-    let changelog = release_changelog(&changelog, next, &date[..10])?;
-    let manifest = with_package_version(&manifest, next)?;
+    let changelog = release_changelog(&original_changelog, next, &date[..10])?;
+    let manifest = with_package_version(&original_manifest, next)?;
 
-    engine::write_atomic(&manifest_path, manifest.as_bytes())?;
-    engine::write_atomic(&changelog_path, changelog.as_bytes())?;
+    let lock_path = paths::root().join("Cargo.lock");
+    let originals = [
+        (&manifest_path, original_manifest.into_bytes()),
+        (&changelog_path, original_changelog.into_bytes()),
+        (&lock_path, std::fs::read(&lock_path)?),
+    ];
+    let result = apply_bump(
+        &manifest_path,
+        manifest.as_bytes(),
+        &changelog_path,
+        changelog.as_bytes(),
+        next,
+        args.no_commit,
+    );
+    if let Err(err) = result {
+        // Put everything back, so fixing the cause and running it again just works. The
+        // changelog may hold uncommitted notes, so restore its bytes rather than checking
+        // it out.
+        for (path, bytes) in &originals {
+            let _ = engine::write_atomic(path, bytes);
+        }
+        let _ = engine::git(&[
+            "reset",
+            "--quiet",
+            "--",
+            "Cargo.toml",
+            "Cargo.lock",
+            "CHANGELOG.md",
+        ]);
+        return Err(err.context("the bump failed, and its changes were undone"));
+    }
+    if args.no_commit {
+        println!("bump: {base} to {next}, staged");
+    } else {
+        println!("bump: {base} to {next}, committed");
+    }
+    Ok(())
+}
+
+fn apply_bump(
+    manifest_path: &Path,
+    manifest: &[u8],
+    changelog_path: &Path,
+    changelog: &[u8],
+    next: Version,
+    no_commit: bool,
+) -> Result<()> {
+    engine::write_atomic(manifest_path, manifest)?;
+    engine::write_atomic(changelog_path, changelog)?;
     let cargo = std::env::var("CARGO").unwrap_or_else(|_| "cargo".to_string());
     let status = Command::new(cargo)
         .args(["update", "--workspace", "--offline", "--quiet"])
@@ -194,13 +253,9 @@ pub fn bump(args: &BumpArgs) -> Result<()> {
         .status()
         .context("failed to run cargo update")?;
     ensure!(status.success(), "updating Cargo.lock failed");
-
     engine::git(&["add", "Cargo.toml", "Cargo.lock", "CHANGELOG.md"])?;
-    if args.no_commit {
-        println!("bump: {base} to {next}, staged");
-    } else {
+    if !no_commit {
         engine::git(&["commit", "--quiet", "-m", &format!("Release v{next}")])?;
-        println!("bump: {base} to {next}, committed");
     }
     Ok(())
 }
@@ -252,7 +307,7 @@ fn problems(facts: &Facts) -> Vec<String> {
         }
         let notes = section_range(facts.changelog, &format!("## [{head}]"))
             .map(|(start, end)| &facts.changelog[start..end]);
-        if notes.is_none_or(|notes| notes.trim().is_empty()) {
+        if !notes.is_some_and(has_notes) {
             problems.push(format!("CHANGELOG.md has no notes under `## [{head}]`"));
         }
     }
@@ -299,13 +354,21 @@ fn tag_exists(version: Version) -> bool {
 }
 
 fn rows_added(range: &str, file: &str) -> Result<u32> {
-    let stat = engine::git(&["diff", "--numstat", range, "--", file])?;
-    match stat.split_whitespace().next() {
-        None => Ok(0),
-        Some(added) => added
-            .parse()
-            .with_context(|| format!("unexpected numstat for {file}: {stat}")),
-    }
+    net_rows_added(&engine::git(&["diff", "--numstat", range, "--", file])?)
+}
+
+/// New lines in a `git diff --numstat` line. An edited row shows as one added and one deleted,
+/// which isn't a new run.
+fn net_rows_added(numstat: &str) -> Result<u32> {
+    let mut columns = numstat.split_whitespace();
+    let (Some(added), Some(deleted)) = (columns.next(), columns.next()) else {
+        return Ok(0);
+    };
+    let count = |text: &str| -> Result<u32> {
+        text.parse()
+            .with_context(|| format!("unexpected numstat: {numstat}"))
+    };
+    Ok(count(added)?.saturating_sub(count(deleted)?))
 }
 
 pub fn check_release(args: &CheckArgs) -> Result<()> {
@@ -315,8 +378,11 @@ pub fn check_release(args: &CheckArgs) -> Result<()> {
     ])?)?;
     let head = package_version(&engine::git(&["show", "HEAD:Cargo.toml"])?)?;
     let range = format!("{}...HEAD", args.base);
-    let changed: Vec<String> = engine::git(&["diff", "--name-only", &range])?
-        .lines()
+    // Without renames, moving a file reports both its old and new path. With -z, unusual
+    // names aren't quoted, which would hide them from the path rules.
+    let changed: Vec<String> = engine::git(&["diff", "--name-only", "--no-renames", "-z", &range])?
+        .split('\0')
+        .filter(|path| !path.is_empty())
         .map(str::to_string)
         .collect();
     let changelog = engine::git(&["show", "HEAD:CHANGELOG.md"]).unwrap_or_default();
@@ -344,6 +410,11 @@ pub fn check_release(args: &CheckArgs) -> Result<()> {
     bail!("the pull request breaks {} version rules", problems.len())
 }
 
+/// The end of a reply, for error messages.
+fn last_lines(lines: &[String]) -> &[String] {
+    &lines[lines.len().saturating_sub(5)..]
+}
+
 /// An engine process being talked to over pipes.
 struct Session {
     child: Child,
@@ -352,8 +423,9 @@ struct Session {
 }
 
 impl Session {
-    fn start(binary: &Path) -> Result<Session> {
+    fn start(binary: &Path, args: &[&str]) -> Result<Session> {
         let mut child = Command::new(binary)
+            .args(args)
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -361,7 +433,8 @@ impl Session {
             .with_context(|| format!("failed to start {}", binary.display()))?;
         let stdin = child.stdin.take().expect("stdin is piped");
         let stdout = child.stdout.take().expect("stdout is piped");
-        let (sender, lines) = mpsc::channel();
+        // Bounded, so an engine stuck printing can't fill memory faster than it's read.
+        let (sender, lines) = mpsc::sync_channel(1024);
         std::thread::spawn(move || {
             for line in BufReader::new(stdout).lines() {
                 let Ok(line) = line else { break };
@@ -389,6 +462,18 @@ impl Session {
         let mut lines = Vec::new();
         loop {
             let left = deadline.saturating_duration_since(Instant::now());
+            // Checked here too, as `recv_timeout` keeps returning lines that are already
+            // waiting, however late it is.
+            ensure!(
+                !left.is_zero(),
+                "timed out; last lines {:?}",
+                last_lines(&lines)
+            );
+            ensure!(
+                lines.len() < MAX_REPLY_LINES,
+                "more than {MAX_REPLY_LINES} lines without the expected reply; last lines {:?}",
+                last_lines(&lines)
+            );
             match self.lines.recv_timeout(left) {
                 Ok(line) => {
                     let finished = done(&line);
@@ -397,8 +482,12 @@ impl Session {
                         return Ok(lines);
                     }
                 }
-                Err(RecvTimeoutError::Timeout) => bail!("timed out; got {lines:?}"),
-                Err(RecvTimeoutError::Disconnected) => bail!("engine exited; got {lines:?}"),
+                Err(RecvTimeoutError::Timeout) => {
+                    bail!("timed out; last lines {:?}", last_lines(&lines))
+                }
+                Err(RecvTimeoutError::Disconnected) => {
+                    bail!("engine exited; last lines {:?}", last_lines(&lines))
+                }
             }
         }
     }
@@ -434,19 +523,19 @@ pub struct VerifyArgs {
 /// legal move, which also proves it starts at all on this machine.
 pub fn verify_binary(args: &VerifyArgs) -> Result<()> {
     let binary = &args.binary;
-    let output = Command::new(binary)
-        .arg("--version")
-        .output()
-        .with_context(|| format!("failed to run {}", binary.display()))?;
-    let reported = String::from_utf8_lossy(&output.stdout);
     let expected = format!("backrank {ENGINE_VERSION}");
+    let mut version = Session::start(binary, &["--version"])?;
+    let reported = version
+        .read_until(|_| true)
+        .context("`--version` printed nothing")?;
     ensure!(
-        output.status.success() && reported.trim() == expected,
-        "`--version` should print `{expected}`, got {reported:?} ({})",
-        output.status
+        reported[0].trim() == expected,
+        "`--version` should print `{expected}`, got {:?}",
+        reported[0]
     );
+    version.expect_clean_exit()?;
 
-    let mut engine = Session::start(binary)?;
+    let mut engine = Session::start(binary, &[])?;
     engine.send("uci")?;
     let lines = engine.read_until(|line| line == "uciok")?;
     let id = format!("id name {ENGINE_NAME} {ENGINE_VERSION}");
@@ -459,6 +548,11 @@ pub fn verify_binary(args: &VerifyArgs) -> Result<()> {
     engine.send("position startpos")?;
     engine.send("go depth 8")?;
     let lines = engine.read_until(|line| line.starts_with("bestmove "))?;
+    ensure!(
+        lines.iter().any(|line| line.starts_with("info depth 8 ")),
+        "`go depth 8` should reach depth 8, got {:?}",
+        last_lines(&lines)
+    );
     let reply = lines.last().expect("read_until returns the final line");
     let best = reply
         .split_whitespace()
@@ -543,6 +637,9 @@ mod tests {
             "# Changelog\n\n## [Unreleased]\n\n## [0.2.0] - 2026-02-03\n\n### Fixed\n\n\
              - A bug.\n\n## [0.1.0] - 2026-01-01\n\n- First.\n"
         );
+        // Headings alone aren't notes.
+        let headings = "## [Unreleased]\n\n### Added\n\n## [0.1.0]\n\n- First.\n";
+        assert!(release_changelog(headings, v("0.2.0"), "2026-02-03").is_err());
         // Nothing is left to release, so a second bump is refused.
         assert!(release_changelog(&released, v("0.3.0"), "2026-02-04").is_err());
         assert!(release_changelog("# Changelog\n", v("0.2.0"), "2026-02-03").is_err());
@@ -641,9 +738,22 @@ mod tests {
         assert!(
             with("0.2.0", false, "## [0.2.0] - 2026-02-03\n\n## [0.1.0]\n")[0].contains("no notes")
         );
+        assert!(
+            with("0.2.0", false, "## [0.2.0]\n\n### Added\n\n## [0.1.0]\n")[0].contains("no notes")
+        );
         // All three kinds of step are fine.
         assert!(with("0.1.1", false, "## [0.1.1]\n\n- New.\n").is_empty());
         assert!(with("1.0.0", false, "## [1.0.0]\n\n- New.\n").is_empty());
+    }
+
+    #[test]
+    fn counts_only_new_rows() {
+        assert_eq!(net_rows_added("").unwrap(), 0);
+        assert_eq!(net_rows_added("3\t0\tresults/sprt.csv").unwrap(), 3);
+        // An edited row is one added and one deleted.
+        assert_eq!(net_rows_added("1\t1\tresults/sprt.csv").unwrap(), 0);
+        assert_eq!(net_rows_added("0\t2\tresults/sprt.csv").unwrap(), 0);
+        assert!(net_rows_added("-\t-\tresults/sprt.csv").is_err());
     }
 
     #[test]
