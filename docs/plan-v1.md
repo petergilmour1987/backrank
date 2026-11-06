@@ -164,8 +164,8 @@ Each phase ends with an exit check. Work on the next phase starts only after the
 - Add `cargo xtask smoke`: 20 games of Stockfish Skill 0 vs full-strength Stockfish
   through fastchess.
 - Add a GitHub Actions CI workflow on ubuntu: `fmt --check`, `clippy -D warnings`, `test`.
-  For now it is manual-only (`workflow_dispatch`) to save Actions minutes, and the checks
-  are run locally.
+  It started manual-only, to save Actions minutes. `docs/plan-release.md` replaced it with
+  gates on every pull request.
 - Add `tools/bin/`, `tools/books/`, `tools/engines/`, `results/pgn/` and `results/logs/`
   to `.gitignore`.
 
@@ -535,7 +535,8 @@ All of this happens on a feature branch, and reaches `main` through a pull reque
 
 ```
 implement → cargo test (+ --release -- --ignored if movegen changed)
-          → commit the code (bench node count in message), so runs get a clean label
+          → commit the code, so runs get a clean label (with the bench node count in the
+            message, once Phase 6 adds `backrank bench`)
           → cargo xtask sprt --base main          # did it gain? (self-play)
           → cargo xtask ladder                     # how strong vs Stockfish now?
           → commit the results/ rows
