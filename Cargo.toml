@@ -7,6 +7,8 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.88"
 description = "Backrank Chess Engine"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/petergilmour1987/backrank-chess-engine"
 publish = false
 
 [lib]
