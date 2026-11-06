@@ -4,6 +4,8 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    # The label events re-run the version rules when `no-strength-test` changes.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
 
 permissions:
   contents: read
@@ -80,11 +82,26 @@ jobs:
       - run: tools/bin/fastchess --compliance target/release/backrank
       - run: cargo xtask selfplay --games 20 --tc 2+0.05 --concurrency 2
 
+  # A bump where one is needed, and committed evidence for search and eval changes.
+  release-rules:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The rules compare against main and look for existing version tags.
+          fetch-depth: 0
+      - run: rustup toolchain install
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+      - env:
+          WAIVER: ${{ contains(github.event.pull_request.labels.*.name, 'no-strength-test') && '--no-strength-test' || '' }}
+        run: cargo xtask check-release --base origin/main $WAIVER
+
   # The one check the branch rule on main requires, so jobs can be added or skipped here
   # without changing the rule.
   gates:
     if: always()
-    needs: [lint, test, deep-perft, msrv, uci]
+    needs: [lint, test, deep-perft, msrv, uci, release-rules]
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:

@@ -3,13 +3,14 @@
 //! With no arguments it speaks UCI on stdin and stdout, which is how GUIs and match
 //! runners use it.
 
-use backrank::{perft, uci};
+use backrank::{ENGINE_VERSION, perft, uci};
 use std::process::ExitCode;
 use std::time::Instant;
 
 const USAGE: &str = "\
 usage: backrank                     (UCI mode: reads commands on stdin)
-       backrank perft <depth> [startpos | fen <FEN>] [moves <move>...]";
+       backrank perft <depth> [startpos | fen <FEN>] [moves <move>...]
+       backrank --version";
 
 fn main() -> ExitCode {
     backrank::attacks::init();
@@ -22,6 +23,10 @@ fn main() -> ExitCode {
         Some("perft") => perft_command(&args[1..]),
         Some("-h" | "--help" | "help") => {
             println!("{USAGE}");
+            ExitCode::SUCCESS
+        }
+        Some("-V" | "--version" | "version") => {
+            println!("backrank {ENGINE_VERSION}");
             ExitCode::SUCCESS
         }
         Some(other) => usage_error(&format!("unknown command {other:?}")),

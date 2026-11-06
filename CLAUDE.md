@@ -49,8 +49,11 @@ cargo xtask smoke               # harness check: Stockfish Skill 0 vs full stren
 cargo xtask perft-diff --depth N [--fen F]   # compare perft with Stockfish, find the bad move
 cargo xtask selfplay            # Backrank vs itself; fails on any crash/illegal move/time loss
 cargo xtask ladder [--climb] [--note "..."]  # play the current ladder rung, record in results/
-cargo xtask sprt [--base REF]   # does the working tree beat REF? (SPRT, default [0, 10])
+cargo xtask sprt [--base REF]   # does the working tree beat REF? (default: where the branch left main)
 cargo xtask calibrate           # rate the blunder rungs below sf-elo1320 (1 to 1.5 hours)
+cargo xtask bump <major|minor|patch> [--no-commit]  # raise the version, move changelog notes under it
+cargo xtask check-release       # the version and strength-evidence rules (a CI gate)
+cargo xtask verify-binary PATH  # run a built binary: right version, legal move
 cargo run --release -- perft N [startpos | fen F] [moves ...]  # perft split by first move
 ```
 
@@ -69,7 +72,11 @@ pass. Run them locally before pushing: pull requests must also pass them in CI.
 - A pull request can merge once the `gates` check passes (`.github/workflows/ci.yml`).
 - Merge with `gh pr merge --merge` (or `--auto --merge`). Squash and rebase are disabled,
   because `results/*.csv` labels each run with a commit hash that must stay on `main`.
-- SPRT and ladder runs stay local; don't try to run them in CI.
+- If a pull request changes what ships (`src/`, root `Cargo.toml`, `rust-toolchain.toml`,
+  `.cargo/`), its last commit is `cargo xtask bump <level>`, with notes in `CHANGELOG.md`
+  under `[Unreleased]`. The README has the level rules. `check-release` enforces this.
+- SPRT and ladder runs stay local; don't try to run them in CI. Search and eval changes must
+  commit their `results/` rows, or carry the `no-strength-test` label if they can't alter play.
 - Nothing publishes to a package manager, and `publish = false` stays. That work is deferred
   (`docs/plan-release.md` §4).
 
@@ -99,11 +106,11 @@ pass. Run them locally before pushing: pull requests must also pass them in CI.
 Phases 0 to 5 are done (tooling, core types, move generation, UCI, Stockfish ladder, search
 and evaluation); Backrank is on the `sf-elo2000` rung. Next is Phase 6 (hardening and
 v1.0.0). For any search or eval change, follow the development loop in plan §8 on a branch:
-tests, then `caffeinate -i cargo xtask sprt --base main`, then
+tests, then `caffeinate -i cargo xtask sprt`, then
 `caffeinate -i cargo xtask ladder --note ...`, then a pull request. Commit the code first, so
-runs are labelled with a clean hash, and the `results/` rows afterwards. The ladder builds the working tree, so don't leave other edits in it when
-a run starts. Stage explicit paths when committing. After changing move
-generation or make/unmake, also run `cargo test --release --test perft -- --ignored`, and
+runs are labelled with a clean hash, and the `results/` rows afterwards. The ladder builds the
+working tree, so don't leave other edits in it when a run starts. Stage explicit paths when
+committing. After changing move generation or make/unmake, also run `cargo test --release --test perft -- --ignored`, and
 use `cargo xtask perft-diff` to localise any mismatch. The v1 roadmap (phases, decisions,
 Stockfish ladder, UCI spec, perft suite) is in `docs/plan-v1.md`; follow its phase order
 and exit checks.

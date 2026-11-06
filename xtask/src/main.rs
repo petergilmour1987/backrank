@@ -7,6 +7,7 @@ mod ladder;
 mod paths;
 mod perft_diff;
 mod pgn;
+mod release;
 mod selfplay;
 mod setup;
 mod smoke;
@@ -46,6 +47,12 @@ enum Command {
     /// Test whether the working tree beats an earlier commit (sequential probability
     /// ratio test).
     Sprt(sprt::Args),
+    /// Raise the version on this branch and move the unreleased changelog notes under it.
+    Bump(release::BumpArgs),
+    /// Check this branch against the version and strength-evidence rules (a CI gate).
+    CheckRelease(release::CheckArgs),
+    /// Run a built binary as a GUI would: it must report this version and play a legal move.
+    VerifyBinary(release::VerifyArgs),
 }
 
 fn main() -> Result<()> {
@@ -57,5 +64,8 @@ fn main() -> Result<()> {
         Command::Ladder(args) => ladder::run(&args),
         Command::Calibrate(args) => calibrate::run(&args),
         Command::Sprt(args) => sprt::run(&args),
+        Command::Bump(args) => release::bump(&args),
+        Command::CheckRelease(args) => release::check_release(&args),
+        Command::VerifyBinary(args) => release::verify_binary(&args),
     }
 }

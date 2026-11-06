@@ -9,7 +9,7 @@ default-run = "xtask"
 
 [dependencies]
 anyhow = "1.0.104"
-backrank = { version = "0.1.0", path = ".." }
+backrank = { path = ".." }
 clap = { version = "4.6.7", features = ["derive"] }
 serde = { version = "1.0.229", features = ["derive"] }
 sha2 = "0.11.1"

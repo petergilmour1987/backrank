@@ -1,0 +1,2 @@
+# Branches that each add a row shouldn't conflict when merged locally.
+results/*.csv merge=union
