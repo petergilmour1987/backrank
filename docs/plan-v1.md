@@ -530,11 +530,16 @@ cause of any mismatch.
 
 ## 8. Development loop (from Phase 5 on)
 
+All of this happens on a feature branch, and reaches `main` through a pull request
+(`docs/plan-release.md`).
+
 ```
 implement → cargo test (+ --release -- --ignored if movegen changed)
+          → commit the code (bench node count in message), so runs get a clean label
           → cargo xtask sprt --base main          # did it gain? (self-play)
           → cargo xtask ladder                     # how strong vs Stockfish now?
-          → commit code + results/ladder.csv row (bench node count in message)
+          → commit the results/ rows
+          → open a pull request; merge once the gates pass
 ```
 
 ## 9. After v1 (v2 roadmap, in expected value order)
