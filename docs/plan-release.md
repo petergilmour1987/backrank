@@ -72,7 +72,7 @@ Everything reports into a single required check called `gates`, which is much si
 | Release dry run | All release builds | Only when the version or the release workflows change: the real release build and smoke test, so release breakage shows up before the merge |
 
 `check-release` enforces:
-- If shipped paths changed, the version must be higher than `main`'s, unless `main`'s version has no tag yet (a release that failed before tagging).
+- If shipped paths changed, the version must be higher than `main`'s, unless `main`'s version has no tag yet (a release that failed before tagging or is still running, or the gap between Stages 2 and 3).
 - If the version changed, it must be a single valid step up from `main`'s, and its tag must not already exist.
 - If the version changed, `CHANGELOG.md` must have a non-empty section for it.
 
@@ -207,11 +207,11 @@ Each stage is its own PR or set of PRs, and each must pass its exit check before
 - Add `CHANGELOG.md` and a PR template with the version rules.
 - Remove `version = "0.1.0"` from the backrank dependency in `xtask/Cargo.toml`, or the first minor bump breaks the build.
 - Add the version and strength checks to `gates`.
-- Bump to 0.2.0 in the same PR, since `--version` changes what ships.
+- Bump to 0.2.0 in the PR that adds `--version` and `check-release`, since `--version` changes what ships.
 - Change `sprt`'s default `--base` from `HEAD` to the merge-base with `main` (`xtask/src/sprt.rs:18`). On a branch with committed code, `HEAD` would test the engine against itself.
 - Add `results/*.csv merge=union` to `.gitattributes`, so branches adding rows don't conflict in local merges.
 - Make the version in the README's sample output (`README.md:39`) generic.
-- *Exit:* a PR that changes `src/` without a bump fails `gates`.
+- *Exit:* while `main` is still at the tagged 0.1.0, the Stage 2 PR fails `gates` when pushed without its bump commit, and passes once the bump is pushed. After the merge, `main`'s 0.2.0 is untagged and so exempt, so this can't be retested until Verification check 1.
 
 **Stage 3: GitHub Releases.**
 - Add the reusable build workflow and `release.yml`, run the x86-64 speed comparison, and turn on immutable releases.
