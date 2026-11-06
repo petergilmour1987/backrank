@@ -34,3 +34,6 @@ Thumbs.db
 
 # Local environment
 .env
+
+# Private notes, for humans only
+/notes.todo
