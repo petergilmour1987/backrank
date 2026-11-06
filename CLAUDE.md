@@ -86,6 +86,8 @@ pass. Run them locally before pushing: pull requests must also pass them in CI.
   commit their `results/` rows, or carry the `no-strength-test` label if they can't alter play.
 - Nothing publishes to a package manager, and `publish = false` stays. That work is deferred
   (`docs/plan-release.md` §4).
+- Only open a pull request when the user asks for one. You may ask whether they want one, but never open it on your own.
+- Don't wait for the gates after opening a pull request. The user merges pull requests themselves, so never merge one.
 
 ## Conventions
 
