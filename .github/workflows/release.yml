@@ -12,10 +12,11 @@ on:
 permissions:
   contents: read
 
-# Releases run one at a time, and a newer merge never cancels one under way.
+# Releases run one at a time. A newer merge doesn't cancel one under way, and queueing means
+# it doesn't replace one that's waiting either, which would lose that version's release.
 concurrency:
   group: release
-  cancel-in-progress: false
+  queue: max
 
 jobs:
   plan:
@@ -48,6 +49,9 @@ jobs:
             echo "release=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+
+          # Checked here so that missing notes stop the release before anything is tagged.
+          bash .github/release-notes.sh "$version" > /dev/null
 
           echo "Releasing $tag from $GITHUB_SHA."
           echo "release=true" >> "$GITHUB_OUTPUT"
@@ -109,12 +113,7 @@ jobs:
           subject-path: dist/*
       - name: Write the release notes
         run: |
-          awk -v heading="## [$VERSION]" '
-            index($0, heading) == 1 { found = 1; next }
-            /^## \[/ { found = 0 }
-            found
-          ' CHANGELOG.md > notes.md
-          grep -v '^#' notes.md | grep -q '[^[:space:]]' || { echo "::error::no notes for $VERSION in CHANGELOG.md"; exit 1; }
+          bash .github/release-notes.sh "$VERSION" > notes.md
           cat .github/release-footer.md >> notes.md
       # A draft first, because a published immutable release can't take new assets.
       - name: Publish

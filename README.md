@@ -189,8 +189,9 @@ tag names. Until `v1.0.0`, major is unused, and `cargo xtask bump major` is what
 
 Merging a bump publishes the release, with no further steps. `release.yml` builds every
 archive on its own operating system and runs it, tags the merge commit `v<version>`, and
-publishes the GitHub Release with the version's notes from `CHANGELOG.md`. Merges that don't
-bump publish nothing. Published releases are immutable, so fix a bad one by shipping a patch.
+publishes the GitHub Release with the version's notes from `CHANGELOG.md`. Merges that keep
+an already published version publish nothing. Published releases are immutable, so fix a bad
+one by shipping a patch.
 
 | Command | Effect |
 |---|---|
