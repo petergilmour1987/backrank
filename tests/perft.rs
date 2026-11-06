@@ -106,3 +106,5 @@ fn pos6_fast() {
 fn pos6_deep() {
     check(POS6, POS6_COUNTS, 4..=5);
 }
+
+fn   deliberately_badly_formatted( ) { }
