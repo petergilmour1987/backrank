@@ -52,7 +52,7 @@ Backrank's public interface is its UCI behaviour and command line. The Rust libr
 | **Patch** | A bug fix, speed-up or packaging fix | Crash fix, time-forfeit fix |
 | **None** | Nothing shipped changes | Docs, `results/` rows, xtask, CI, tests |
 
-No labels are needed, because the rule is mechanical: **if the PR changes what ships, it must bump; if the version on `main` has no published release, the workflow releases it.** Docs-only merges therefore produce no tag and no release.
+No labels are needed, because the rule is mechanical: **if the PR changes what ships, it must bump; if the version on `main` has no published release, the workflow releases it.** Docs-only merges therefore produce no tag and no release. `check-release` treats a version as released once its tag exists.
 
 Until `v1.0.0`, major is unused and releases are marked as pre-releases.
 
@@ -69,12 +69,12 @@ Everything reports into a single required check called `gates`, which is much si
 | UCI behaviour | Ubuntu | `fastchess --compliance`, plus a short self-play run (about 20 games) that fails on any crash, illegal move or time loss |
 | Version check | Ubuntu | New `cargo xtask check-release`, described below |
 | Strength evidence | Ubuntu | A PR touching `src/search/**` or `src/eval/**` must add rows to `results/sprt.csv` and `results/ladder.csv`, or carry a `no-strength-test` label |
-| Release dry run | All 5 release targets | Only when the version or the release workflows change: the real release build and smoke test, so release breakage shows up before the merge |
+| Release dry run | All release builds | Only when the version or the release workflows change: the real release build and smoke test, so release breakage shows up before the merge |
 
 `check-release` enforces:
-- If shipped paths changed, the version must be higher than `main`'s, unless `main`'s version hasn't been released yet.
-- The version must be a valid single step up, and its tag must not already exist.
-- `CHANGELOG.md` must have a non-empty section for that version.
+- If shipped paths changed, the version must be higher than `main`'s, unless `main`'s version has no tag yet (a release that failed before tagging).
+- If the version changed, it must be a single valid step up from `main`'s, and its tag must not already exist.
+- If the version changed, `CHANGELOG.md` must have a non-empty section for it.
 
 **SPRT and ladder runs stay on the development Mac.** Timed matches on shared 4-core runners are noisy, and one SPRT has already taken 4,489 games. CI checks that the evidence was committed rather than producing it. After Phase 6 adds `backrank bench`, the path rule above can compare node counts instead: unchanged bench, no strength test needed.
 
@@ -90,7 +90,9 @@ merge commit lands on main
  └─ release   draft, upload archives + SHA256SUMS, attest, publish
 ```
 
-**Smoke test:** a new `cargo xtask verify-binary <path>` runs the real archive's binary. It drives `uci`, `isready`, `position startpos` and `go depth 8`, then checks that the best move is legal and that `id name` reports exactly the release's version.
+**If the tag already exists:** on this commit, the run carries on, which makes re-running a failed job safe. On a different commit, `plan` warns and stops, because binaries built from this commit must not be attached to a tag on another one.
+
+**Smoke test:** a new `cargo xtask verify-binary <path>` runs the real archive's binary. It drives `uci`, `isready`, `position startpos` and `go depth 8`, then checks that the best move is legal and that `id name` and `--version` both report exactly the release's version.
 
 **Release settings:** turn on GitHub's immutable releases, which lock the tag and assets once published. That is why the flow goes through a draft. Each release also gets a build attestation, a signed record that GitHub Actions built the file from that commit.
 
@@ -138,10 +140,10 @@ Stockfish's packaging, from Repology and winget-pkgs, shows the split. Windows a
 
 | Tier | Channel | Install command | How it works | Effort |
 |---|---|---|---|---|
-| **1: by v1.0.0** | Homebrew tap | `brew install petergilmour1987/tap/backrank` | Your own `homebrew-tap` repo; CI writes a formula pointing at the release assets | Low |
+| **1: first** | Homebrew tap | `brew install petergilmour1987/tap/backrank` | Your own `homebrew-tap` repo; CI writes a formula pointing at the release assets | Low |
 | | crates.io | `cargo install backrank` (`cargo binstall` for prebuilt) | First publish by hand claims the name, then Trusted Publishing with no stored token | Low |
 | | winget | `winget install Backrank.Backrank` | Built into Windows. Zip with a portable binary, the format Stockfish and ripgrep both use. First PR by hand, then CI uses Microsoft's `wingetcreate`. Reviewed, so not instant | Medium |
-| **2: after v1.0.0** | Scoop | `scoop install backrank/backrank` | Your own bucket repo, one JSON file | Low |
+| **2: next** | Scoop | `scoop install backrank/backrank` | Your own bucket repo, one JSON file | Low |
 | | AUR | `yay -S backrank-bin` | Arch Linux. Needs an account and SSH key; not pre-reviewed | Low |
 | | nixpkgs | `nix-env -iA nixpkgs.backrank` | One PR adding `pkgs/by-name/ba/backrank/package.nix`, as Stockfish does. Builds from source | Low |
 | **3: when triggered** | homebrew-core | `brew install backrank` | Needs a stable release and, for self-submission, **225 stars, 90 forks or 90 watchers** (75/30/30 if someone else submits). Builds from source | Low |
@@ -177,7 +179,7 @@ Stockfish's packaging, from Repology and winget-pkgs, shows the split. Windows a
 | Failure | Result | Recovery |
 |---|---|---|
 | Build or smoke test fails after merge | No tag, nothing public | Merge a fix PR with no new bump (`check-release` allows this); it releases the same version on the fix's merge commit |
-| Upload fails | Only a draft exists | Re-run the failed job |
+| Upload fails | The tag and a draft exist, but nothing is published | Re-run the failed job. If that's no longer possible, ship the next patch version, because `plan` won't release from another commit |
 | A bad release is published | Immutable, so it can't be replaced | Ship a patch release and note the problem on the old release (notes stay editable) |
 
 ## 7. Rollout
@@ -187,21 +189,25 @@ Each stage is its own PR or set of PRs, and each must pass its exit check before
 **Stage 0: go public.**
 - Add `LICENSE` (GPL-3.0 text), `license = "GPL-3.0-or-later"` and `repository` in `Cargo.toml` (`publish = false` stays), plus a README license section.
 - Scan history for secrets, then make the repo public.
-- Copy this plan to `docs/plan-release.md`, and tag the current `main` as `v0.1.0` as the baseline.
+- Turn on secret scanning with push protection, and set workflows to read-only by default.
+- Copy this plan to `docs/plan-release.md`, and tag the merged `main` as `v0.1.0` as the baseline. This tag gets no GitHub Release: Stage 2 moves `main` to 0.2.0 before `release.yml` exists, so nothing tries to release 0.1.0.
 - *Exit:* the branch protection API no longer returns 403.
 
 **Stage 1: branches and gates.**
-- Replace `ci.yml` with the gates, excluding the version and strength checks until Stage 2 adds them.
+- Replace `ci.yml` with the gates, apart from the version and strength checks (Stage 2) and the release dry run (Stage 3).
+- Add `cargo xtask setup --skip-stockfish`, so CI can install fastchess and the book for the self-play gate. Add Dependabot.
 - Pin `rust-toolchain.toml` to an exact version (currently the floating `stable`), so a new Rust release can't break unrelated PRs or change binaries.
 - Fix whatever the first Windows run shows. It has never been built there. No platform-specific code turned up, but the short timing windows in `tests/uci.rs:185` and `:204` may be tight on slow runners.
-- Turn on the `main` rule, and update `CLAUDE.md`, `docs/plan-v1.md` §8 and the README.
+- Turn on the `main` rule and the repo merge settings, and update `CLAUDE.md`, `docs/plan-v1.md` §8 and the README.
 - *Exit:* a deliberately broken PR cannot merge, and a good one can.
 
 **Stage 2: version tooling.**
 - Add `cargo xtask bump`, `check-release` and `verify-binary`.
 - Add `backrank --version` (it currently returns a usage error, `src/main.rs`).
 - Add `CHANGELOG.md` and a PR template with the version rules.
-- Remove `version = "0.1.0"` from the backrank dependency at `xtask/Cargo.toml:11`, or the first minor bump breaks the build.
+- Remove `version = "0.1.0"` from the backrank dependency in `xtask/Cargo.toml`, or the first minor bump breaks the build.
+- Add the version and strength checks to `gates`.
+- Bump to 0.2.0 in the same PR, since `--version` changes what ships.
 - Change `sprt`'s default `--base` from `HEAD` to the merge-base with `main` (`xtask/src/sprt.rs:18`). On a branch with committed code, `HEAD` would test the engine against itself.
 - Add `results/*.csv merge=union` to `.gitattributes`, so branches adding rows don't conflict in local merges.
 - Make the version in the README's sample output (`README.md:39`) generic.
@@ -210,7 +216,7 @@ Each stage is its own PR or set of PRs, and each must pass its exit check before
 **Stage 3: GitHub Releases.**
 - Add the reusable build workflow and `release.yml`, run the x86-64 speed comparison, and turn on immutable releases.
 - Add a README install section: where to download, verifying checksums, and the macOS and Windows warnings.
-- Ship `v0.2.0` through the full flow.
+- Add the release dry run to `gates`, and merge. With `main` already at 0.2.0 and no tag, this merge ships `v0.2.0` through the full flow.
 - *Exit:* all the Verification checks below for that release pass.
 
 **Phase 6 then proceeds under this flow:** bench, stress run, GUI check and final ladder climb, ending in `v1.0.0`. Package managers (section 4) can be picked up later.
@@ -224,7 +230,7 @@ Each stage is its own PR or set of PRs, and each must pass its exit check before
 | Status | Files |
 |---|---|
 | **New** | `LICENSE`, `CHANGELOG.md`, `.gitattributes`, `.github/workflows/release.yml`, `.github/workflows/build.yml` (reusable), `.github/pull_request_template.md`, `.github/dependabot.yml`, `docs/plan-release.md`, `xtask/src/release.rs` (`bump`, `check-release`, `verify-binary`). No other repos are created |
-| **Changed** | `.github/workflows/ci.yml`, `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `xtask/Cargo.toml`, `xtask/src/main.rs`, `xtask/src/sprt.rs`, `xtask/src/setup.rs` (a fastchess-only install for CI, as it currently requires Stockfish), `src/main.rs`, `README.md`, `CLAUDE.md`, `docs/plan-v1.md` |
+| **Changed** | `.github/workflows/ci.yml`, `Cargo.toml`, `Cargo.lock`, `rust-toolchain.toml`, `xtask/Cargo.toml`, `xtask/src/main.rs`, `xtask/src/sprt.rs`, `xtask/src/setup.rs` (an install without Stockfish, for CI), `src/main.rs`, `README.md`, `CLAUDE.md`, `docs/plan-v1.md` |
 | **Reused** | `ENGINE_VERSION` (`src/lib.rs:22`) already feeds `id name`, and `find_legal_move` (`src/movegen/`) can check the smoke test's best move. `xtask/src/setup.rs` already pins and checks the fastchess download |
 
 ## 9. Verification
