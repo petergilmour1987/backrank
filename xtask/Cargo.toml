@@ -3,6 +3,7 @@ name = "xtask"
 version = "0.1.0"
 edition = "2024"
 description = "Development tooling for the Backrank Chess Engine (run via `cargo xtask`)"
+license = "GPL-3.0-or-later"
 publish = false
 default-run = "xtask"
 

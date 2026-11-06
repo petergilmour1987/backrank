@@ -291,3 +291,9 @@ tools/           ladder.toml, plus installed match tooling (bin/, books/, engine
 results/         ladder and SPRT history (committed); pgn/ and logs/ hold match output (gitignored)
 docs/            plans and design docs
 ```
+
+## License
+
+Backrank is free software: you can redistribute it and/or modify it under the terms of the
+GNU General Public License as published by the Free Software Foundation, either version 3
+of the License, or (at your option) any later version. See [`LICENSE`](LICENSE).
