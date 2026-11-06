@@ -537,9 +537,10 @@ All of this happens on a feature branch, and reaches `main` through a pull reque
 implement → cargo test (+ --release -- --ignored if movegen changed)
           → commit the code, so runs get a clean label (with the bench node count in the
             message, once Phase 6 adds `backrank bench`)
-          → cargo xtask sprt --base main          # did it gain? (self-play)
+          → cargo xtask sprt                      # did it gain? (self-play)
           → cargo xtask ladder                     # how strong vs Stockfish now?
           → commit the results/ rows
+          → cargo xtask bump <level>
           → open a pull request; merge once the gates pass
 ```
 

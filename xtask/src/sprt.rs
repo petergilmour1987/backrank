@@ -15,8 +15,10 @@ use std::process::Command;
 #[derive(clap::Args)]
 pub struct Args {
     /// The version to compare against: any git ref, such as a commit, tag or `HEAD~1`.
-    #[arg(long, default_value = "HEAD")]
-    base: String,
+    /// Defaults to where this branch left `main`, as the code on a branch is usually
+    /// committed by the time it's tested.
+    #[arg(long)]
+    base: Option<String>,
     /// Elo gain under H0, the "no real gain" hypothesis (normalized Elo).
     #[arg(long, default_value_t = 0.0)]
     elo0: f64,
@@ -53,8 +55,19 @@ pub fn run(args: &Args) -> Result<()> {
 
     let new_label = engine::version_label()?;
     let new = engine::snapshot(&engine::build_backrank()?, &new_label)?;
-    let base_label = engine::git(&["rev-parse", "--short", &format!("{}^{{commit}}", args.base)])
-        .with_context(|| format!("{} is not a commit", args.base))?;
+    let base_ref = match &args.base {
+        Some(base) => base.clone(),
+        None => engine::git(&["merge-base", "HEAD", "origin/main"])
+            .or_else(|_| engine::git(&["merge-base", "HEAD", "main"]))
+            .context("can't find where this branch left main; pass --base")?,
+    };
+    let base_label = engine::git(&["rev-parse", "--short", &format!("{base_ref}^{{commit}}")])
+        .with_context(|| format!("{base_ref} is not a commit"))?;
+    ensure!(
+        args.base.is_some() || base_label != new_label,
+        "the code is the same as main, so this would test {new_label} against itself: \
+         change something, or pass --base to run it anyway"
+    );
     let base = base_binary(&base_label)?;
     // Fail fast on a base from before the UCI loop existed, or a broken cached build.
     for (name, binary) in [("new", &new), ("base", &base)] {

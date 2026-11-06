@@ -138,6 +138,22 @@ fn assert_legal(position: &str, mv: &str) {
 }
 
 #[test]
+fn version_flag_prints_the_version() {
+    for flag in ["--version", "-V", "version"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_backrank"))
+            .arg(flag)
+            .output()
+            .expect("failed to run backrank");
+        assert!(output.status.success(), "{flag}");
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout).trim(),
+            format!("backrank {}", backrank::ENGINE_VERSION),
+            "{flag}"
+        );
+    }
+}
+
+#[test]
 fn handshake_identifies_the_engine_and_its_options() {
     let mut engine = Engine::start();
     engine.send("uci");

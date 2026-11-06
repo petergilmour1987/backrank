@@ -25,6 +25,7 @@ The roadmap and progress are in [`docs/plan-v1.md`](docs/plan-v1.md).
 ```sh
 cargo build --release            # optimised build: target/release/backrank
 cargo run --release              # run the engine in UCI mode
+cargo run --release -- --version # print the version
 ```
 
 ### Using it as a UCI engine
@@ -36,7 +37,7 @@ it in a chess GUI (Cute Chess, Arena, BanksiaGUI and so on), add
 ```
 $ cargo run --release
 uci
-id name Backrank 0.1.0
+id name Backrank <version>
 id author petergilmour1987
 option name Move Overhead type spin default 20 min 0 max 5000
 uciok
@@ -116,10 +117,12 @@ to directly. A pull request can merge once the `gates` check passes:
 | `deep-perft` | Linux | The ignored perft tests, in release mode |
 | `msrv` | Linux | The engine still builds with the `rust-version` in `Cargo.toml` |
 | `uci` | Linux | `fastchess --compliance`, and 20 self-play games that fail on any crash, illegal move or time loss |
+| `release-rules` | Linux | `cargo xtask check-release`: the version rules below, and committed evidence for search and eval changes |
 
 ```sh
 git switch -c feat/my-change
-# implement, test and commit
+# implement, test and commit, then add notes under [Unreleased] in CHANGELOG.md
+cargo xtask bump minor          # only if this changes what ships; the branch's last commit
 git push -u origin HEAD
 gh pr create --fill
 gh pr merge --auto --merge      # merges by itself once the gates pass
@@ -130,7 +133,31 @@ each run with a commit hash, and those commits must stay on `main`. Use
 `git log --first-parent main` for a one-line-per-pull-request history.
 
 SPRT and ladder runs stay local, because timed matches on shared CI machines are too noisy.
-[`docs/plan-release.md`](docs/plan-release.md) has the full plan.
+A pull request that changes `src/search/` or `src/eval/` must commit new rows to
+`results/sprt.csv` and `results/ladder.csv`. If the change can't alter play, label it
+`no-strength-test` instead. [`docs/plan-release.md`](docs/plan-release.md) has the full plan.
+
+### Versions
+
+Versions follow [semantic versioning](https://semver.org). Backrank's public interface is
+its UCI behaviour and command line. The Rust library is internal and has no compatibility
+guarantee.
+
+| Bump | When | Examples |
+|---|---|---|
+| Major | A UCI option or command is removed, renamed or changes meaning | Removing `Move Overhead` |
+| Minor | A change meant to alter play, or a new feature | Transposition table, new UCI option |
+| Patch | A bug fix, speed-up or packaging fix | Crash fix, time-forfeit fix |
+| None | Nothing shipped changes | Docs, `results/` rows, xtask, CI, tests |
+
+The bump is part of the pull request, so the merge commit already contains the version its
+tag names. Until `v1.0.0`, major is unused, and `cargo xtask bump major` is what makes 1.0.0.
+
+| Command | Effect |
+|---|---|
+| `cargo xtask bump <major\|minor\|patch>` | Raise the version from `main`'s, move the `[Unreleased]` notes in `CHANGELOG.md` under it, and commit. Add `--no-commit` to stage the changes instead. |
+| `cargo xtask check-release` | Run the `release-rules` gate locally. `--base <ref>` sets the branch to compare with (default `origin/main`), and `--no-strength-test` waives the evidence rule. |
+| `cargo xtask verify-binary <path>` | Run a built binary as a GUI would. It must report this checkout's version and play a legal move. |
 
 ## Match tooling
 
@@ -249,7 +276,7 @@ values. Results go to [`results/calibration.toml`](results/calibration.toml). It
 ### Did a change help? (SPRT)
 
 ```sh
-cargo xtask sprt                        # working tree vs HEAD
+cargo xtask sprt                        # working tree vs where this branch left main
 cargo xtask sprt --base HEAD~1          # vs any commit, tag or branch
 ```
 
@@ -261,7 +288,7 @@ the next run. Results are added to `results/sprt.csv`.
 
 | Option | Default | Effect |
 |---|---|---|
-| `--base <ref>` | `HEAD` | The version to compare against. |
+| `--base <ref>` | where this branch left `main` | The version to compare against. |
 | `--elo0`, `--elo1` | `0`, `10` | The two hypotheses, in normalized Elo. |
 | `--alpha`, `--beta` | `0.05` | Error rates. |
 | `--tc <tc>` | `8+0.08` | Time control. |
