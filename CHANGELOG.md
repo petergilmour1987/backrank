@@ -4,6 +4,8 @@ Notable changes to Backrank. The version rules are in the README's development w
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-06
+
 ### Added
 
 - `backrank --version`.
