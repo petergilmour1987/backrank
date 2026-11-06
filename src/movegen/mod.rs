@@ -78,15 +78,7 @@ pub fn generate(pos: &Position, list: &mut MoveList) {
         PieceType::King,
     ] {
         for from in pos.pieces(Piece::new(us, kind)) {
-            let reach = match kind {
-                PieceType::Knight => attacks::knight_attacks(from),
-                PieceType::Bishop => attacks::bishop_attacks(from, occupied),
-                PieceType::Rook => attacks::rook_attacks(from, occupied),
-                PieceType::Queen => attacks::queen_attacks(from, occupied),
-                PieceType::King => attacks::king_attacks(from),
-                PieceType::Pawn => unreachable!("pawns are generated separately"),
-            };
-            for to in reach & !own {
+            for to in piece_reach(kind, from, occupied) & !own {
                 list.push(if enemy.contains(to) {
                     Move::capture(from, to)
                 } else {
@@ -96,6 +88,63 @@ pub fn generate(pos: &Position, list: &mut MoveList) {
         }
     }
     castling_moves(pos, us, occupied, list);
+}
+
+/// The squares a piece other than a pawn attacks from `from`.
+fn piece_reach(kind: PieceType, from: Square, occupied: Bitboard) -> Bitboard {
+    match kind {
+        PieceType::Knight => attacks::knight_attacks(from),
+        PieceType::Bishop => attacks::bishop_attacks(from, occupied),
+        PieceType::Rook => attacks::rook_attacks(from, occupied),
+        PieceType::Queen => attacks::queen_attacks(from, occupied),
+        PieceType::King => attacks::king_attacks(from),
+        PieceType::Pawn => unreachable!("pawns are generated separately"),
+    }
+}
+
+/// Appends the pseudo-legal moves quiescence search looks at: captures and queen promotions.
+/// Underpromotions are left out, since a queen is almost always better.
+pub fn generate_tactical(pos: &Position, list: &mut MoveList) {
+    let us = pos.side_to_move();
+    let enemy = pos.occupancy(!us);
+    let occupied = pos.occupied();
+
+    let (step, last_rank) = match us {
+        Color::White => (8, Rank::R8),
+        Color::Black => (-8, Rank::R1),
+    };
+    for from in pos.pieces(Piece::new(us, PieceType::Pawn)) {
+        let attacked = attacks::pawn_attacks(us, from);
+        for to in attacked & enemy {
+            list.push(if to.rank() == last_rank {
+                Move::promotion(from, to, PieceType::Queen, true)
+            } else {
+                Move::capture(from, to)
+            });
+        }
+        if let Some(ep) = pos.en_passant()
+            && attacked.contains(ep)
+        {
+            list.push(Move::en_passant(from, ep));
+        }
+        let one = from.offset(step);
+        if one.rank() == last_rank && !occupied.contains(one) {
+            list.push(Move::promotion(from, one, PieceType::Queen, false));
+        }
+    }
+    for kind in [
+        PieceType::Knight,
+        PieceType::Bishop,
+        PieceType::Rook,
+        PieceType::Queen,
+        PieceType::King,
+    ] {
+        for from in pos.pieces(Piece::new(us, kind)) {
+            for to in piece_reach(kind, from, occupied) & enemy {
+                list.push(Move::capture(from, to));
+            }
+        }
+    }
 }
 
 fn pawn_moves(pos: &Position, us: Color, enemy: Bitboard, occupied: Bitboard, list: &mut MoveList) {
@@ -299,6 +348,50 @@ mod tests {
             assert!(moves.contains(&m.to_string()), "missing {m}");
         }
         assert_eq!(moves.iter().filter(|m| m.starts_with("c7")).count(), 8);
+    }
+
+    /// Checks `generate_tactical` against the full generator, filtered, at every position
+    /// of a walk through the legal move tree.
+    fn check_tactical(pos: &mut Position, depth: u32) {
+        let mut all = MoveList::new();
+        generate(pos, &mut all);
+        let mut expected: Vec<Move> = all
+            .iter()
+            .copied()
+            .filter(|m| match m.promotion_piece() {
+                Some(piece) => piece == PieceType::Queen,
+                None => m.is_capture(),
+            })
+            .collect();
+        let mut tactical = MoveList::new();
+        generate_tactical(pos, &mut tactical);
+        let mut actual: Vec<Move> = tactical.to_vec();
+        let key = |m: &Move| m.to_string();
+        expected.sort_by_key(key);
+        actual.sort_by_key(key);
+        assert_eq!(actual, expected, "in {}", pos.to_fen());
+        if depth > 0 {
+            for &m in all.iter() {
+                if pos.make_move(m) {
+                    check_tactical(pos, depth - 1);
+                    pos.unmake_move();
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn tactical_moves_match_the_filtered_full_generator() {
+        for fen in [
+            Position::STARTPOS_FEN,
+            "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",
+            "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1",
+            "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",
+            "r2q1rk1/pP1p2pp/Q4n2/bbp1p3/Np6/1B3NBn/pPPP1PPP/R3K2R b KQ - 0 1",
+            "rnbq1k1r/pp1Pbppp/2p5/8/2B5/8/PPP1NnPP/RNBQK2R w KQ - 1 8",
+        ] {
+            check_tactical(&mut Position::from_fen(fen).unwrap(), 2);
+        }
     }
 
     #[test]

@@ -10,7 +10,7 @@ mod ordering;
 use crate::board::Position;
 use crate::eval;
 use crate::movegen::{self, MoveList};
-use crate::types::{Move, PieceType};
+use crate::types::Move;
 use ordering::Ordered;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -418,14 +418,8 @@ impl<'a> Searcher<'a> {
         }
         alpha = alpha.max(stand_pat);
 
-        let mut all = MoveList::new();
-        movegen::generate(self.pos, &mut all);
         let mut tactical = MoveList::new();
-        for &m in all.iter() {
-            if m.is_capture() || m.promotion_piece() == Some(PieceType::Queen) {
-                tactical.push(m);
-            }
-        }
+        movegen::generate_tactical(self.pos, &mut tactical);
         let mut best = stand_pat;
         for m in Ordered::new(self.pos, tactical, None) {
             if !self.pos.make_move(m) {
