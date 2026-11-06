@@ -1,5 +1,7 @@
 # Backrank branching, CI/CD and release plan
 
+**Status:** stages 0 to 3 are done, and `v0.2.0` shipped through this process. Package managers (section 4) are still deferred.
+
 ## Context
 
 When this plan was written (2026-11-06), Backrank committed directly to `main`. Its only workflow was manual, and it had no tags, no license and `publish = false`. The goal is feature branches, gates on PRs, a semantic version and tag on each merge, and GitHub Releases for macOS, Windows and Linux.
