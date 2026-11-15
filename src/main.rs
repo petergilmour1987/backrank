@@ -3,13 +3,14 @@
 //! With no arguments it speaks UCI on stdin and stdout, which is how GUIs and match
 //! runners use it.
 
-use backrank::{ENGINE_VERSION, perft, uci};
+use backrank::{ENGINE_VERSION, bench, perft, uci};
 use std::process::ExitCode;
 use std::time::Instant;
 
 const USAGE: &str = "\
 usage: backrank                     (UCI mode: reads commands on stdin)
        backrank perft <depth> [startpos | fen <FEN>] [moves <move>...]
+       backrank bench [depth]       (default depth 5)
        backrank --version";
 
 fn main() -> ExitCode {
@@ -21,6 +22,7 @@ fn main() -> ExitCode {
             ExitCode::SUCCESS
         }
         Some("perft") => perft_command(&args[1..]),
+        Some("bench") => bench_command(&args[1..]),
         Some("-h" | "--help" | "help") => {
             println!("{USAGE}");
             ExitCode::SUCCESS
@@ -68,6 +70,36 @@ fn perft_command(args: &[String]) -> ExitCode {
         elapsed.as_secs_f64(),
         nps / 1e6
     );
+    ExitCode::SUCCESS
+}
+
+/// Searches the bench positions and prints each one's best move and node count, then a
+/// last line of `<nodes> nodes <nps> nps`, the format OpenBench reads. Everything on stdout
+/// but that last line is the same on every run; timing goes to stderr.
+fn bench_command(args: &[String]) -> ExitCode {
+    let depth = match args {
+        [] => bench::DEFAULT_DEPTH,
+        [depth] => match depth.parse::<u32>() {
+            Ok(d) if d >= 1 => d,
+            _ => return usage_error("bench depth must be a whole number of at least 1"),
+        },
+        _ => return usage_error("bench takes at most one argument, the depth"),
+    };
+    println!(
+        "bench at depth {depth}, {} positions",
+        bench::POSITIONS.len()
+    );
+    let summary = bench::run(depth, &mut |index, result| {
+        println!(
+            "{:>2} {:<5} {:>9} {}",
+            index + 1,
+            result.best.to_string(),
+            result.nodes,
+            result.fen
+        );
+    });
+    eprintln!("{:.3} s", summary.time.as_secs_f64());
+    println!("{} nodes {} nps", summary.nodes, summary.nps());
     ExitCode::SUCCESS
 }
 

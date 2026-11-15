@@ -154,6 +154,56 @@ fn version_flag_prints_the_version() {
 }
 
 #[test]
+fn bench_prints_each_position_then_the_total_in_openbench_format() {
+    let output = Command::new(env!("CARGO_BIN_EXE_backrank"))
+        .args(["bench", "2"])
+        .output()
+        .expect("failed to run backrank");
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let lines: Vec<&str> = stdout.lines().collect();
+    let positions = backrank::bench::POSITIONS;
+    assert_eq!(lines.len(), positions.len() + 2, "{stdout}");
+    assert_eq!(
+        lines[0],
+        format!("bench at depth 2, {} positions", positions.len())
+    );
+
+    let mut sum = 0;
+    for (i, line) in lines[1..=positions.len()].iter().enumerate() {
+        let fields: Vec<&str> = line.split_whitespace().collect();
+        assert_eq!(fields[0], (i + 1).to_string(), "{line}");
+        assert_legal(&format!("fen {}", positions[i]), fields[1]);
+        sum += fields[2].parse::<u64>().unwrap();
+        assert_eq!(fields[3..].join(" "), positions[i], "{line}");
+    }
+
+    let last: Vec<&str> = lines.last().unwrap().split_whitespace().collect();
+    assert_eq!(
+        (last.len(), last[1], last[3]),
+        (4, "nodes", "nps"),
+        "{last:?}"
+    );
+    let total: u64 = last[0].parse().unwrap();
+    last[2].parse::<u64>().unwrap();
+    assert_eq!(total, sum);
+    // The binary and the library agree.
+    assert_eq!(total, backrank::bench::run(2, &mut |_, _| {}).nodes);
+}
+
+#[test]
+fn bench_rejects_a_bad_depth() {
+    for args in [&["bench", "0"][..], &["bench", "x"], &["bench", "3", "4"]] {
+        let output = Command::new(env!("CARGO_BIN_EXE_backrank"))
+            .args(args)
+            .output()
+            .expect("failed to run backrank");
+        assert_eq!(output.status.code(), Some(2), "{args:?}");
+        assert!(output.stdout.is_empty(), "{args:?}");
+    }
+}
+
+#[test]
 fn handshake_identifies_the_engine_and_its_options() {
     let mut engine = Engine::start();
     engine.send("uci");

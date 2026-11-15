@@ -8,6 +8,7 @@ How to run the engine and talk to it. For installing it, see the
 ```sh
 backrank                                # UCI mode: reads commands on stdin
 backrank perft <depth> [position]       # perft split by first move
+backrank bench [depth]                  # fixed search benchmark (default depth 5)
 backrank --version                      # print the version
 backrank --help                         # print the usage
 ```
@@ -71,3 +72,24 @@ cargo run --release -- perft 3 startpos moves e2e4 e7e5         # after some mov
 
 The position follows UCI `position` syntax: `[startpos | fen <FEN>] [moves <move>...]`.
 Timing goes to stderr, so stdout can be compared with Stockfish's directly.
+
+## Bench
+
+`bench` searches a fixed set of 50 positions to a fixed depth, 5 unless given, and prints
+the best move and node count for each, then the total:
+
+```
+$ cargo run --release -- bench
+bench at depth 5, 50 positions
+ 1 b1c3     149027 rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+...
+50 h2h3      32534 8/5k2/8/4p2p/4Np1K/2R2P2/r6P/8 w - - 16 58
+19532453 nodes 9590596 nps
+```
+
+The search is deterministic: one thread, no time limits and a fresh search for each
+position, so the node count doesn't depend on the machine or the run.
+It works as a fingerprint of the search: a change that leaves it alone hasn't changed what
+the engine searches, only how fast. The last line is in the format OpenBench reads. The
+elapsed time goes to stderr, and everything on stdout except that last line is identical
+from run to run.

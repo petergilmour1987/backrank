@@ -59,6 +59,7 @@ cargo xtask bump <major|minor|patch> [--no-commit]  # raise the version, move ch
 cargo xtask check-release       # the version and strength-evidence rules (a CI gate)
 cargo xtask verify-binary PATH  # run a built binary: right version, legal move
 cargo run --release -- perft N [startpos | fen F] [moves ...]  # perft split by first move
+cargo run --release -- bench [depth]  # fixed-depth search of 50 positions; node count fingerprints the search
 ```
 
 Keep the usage docs current when commands or options are added or change: `docs/usage.md` for
