@@ -10,7 +10,7 @@ use std::time::Instant;
 const USAGE: &str = "\
 usage: backrank                     (UCI mode: reads commands on stdin)
        backrank perft <depth> [startpos | fen <FEN>] [moves <move>...]
-       backrank bench [depth]           (default depth 5)
+       backrank bench [depth]       (default depth 5)
        backrank --version";
 
 fn main() -> ExitCode {
@@ -81,7 +81,7 @@ fn bench_command(args: &[String]) -> ExitCode {
         [] => bench::DEFAULT_DEPTH,
         [depth] => match depth.parse::<u32>() {
             Ok(d) if d >= 1 => d,
-            _ => return usage_error("bench needs a depth of at least 1"),
+            _ => return usage_error("bench depth must be a whole number of at least 1"),
         },
         _ => return usage_error("bench takes at most one argument, the depth"),
     };
