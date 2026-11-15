@@ -2,7 +2,7 @@
 
 How to build, test and change Backrank, and how changes reach a release. The plan behind the
 process is in [`docs/plan-release.md`](docs/plan-release.md), and the engine's roadmap is in
-[`docs/plan-v1.md`](docs/plan-v1.md).
+[`ROADMAP.md`](ROADMAP.md).
 
 ## Requirements
 
@@ -67,6 +67,10 @@ SPRT and ladder runs stay local, because timed matches on shared CI machines are
 A pull request that changes `src/search/` or `src/eval/` must commit new rows to
 `results/sprt.csv` and `results/ladder.csv`. If the change can't alter play, label it
 `no-strength-test` instead. [`docs/plan-release.md`](docs/plan-release.md) has the full plan.
+
+Give the node count from `cargo run --release -- bench` in the message of every commit that
+changes the search or evaluation, as a last line such as `Bench: 19532453`. The count only
+changes when what the engine searches changes, so a pure speed-up keeps it the same.
 
 ### Versions
 

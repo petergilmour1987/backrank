@@ -3,6 +3,7 @@
 //! The engine core lives here; `src/main.rs` is a thin binary front end.
 
 pub mod attacks;
+pub mod bench;
 pub mod board;
 pub mod eval;
 pub mod movegen;

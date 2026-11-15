@@ -4,6 +4,13 @@ Notable changes to Backrank. The version rules are in [`CONTRIBUTING.md`](CONTRI
 
 ## [Unreleased]
 
+### Added
+
+- `backrank bench [depth]`: a fixed-depth search of 50 positions, printing each one's best
+  move and node count and then the total as `<nodes> nodes <nps> nps`. The total is the same
+  on every machine, so it fingerprints the search. At the default depth of 5 it is
+  19,532,453 nodes.
+
 ## [0.2.0] - 2026-11-06
 
 ### Added

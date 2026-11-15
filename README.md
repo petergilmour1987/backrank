@@ -167,7 +167,7 @@ aren't part of the release binaries.
 [readme-link]:        https://github.com/petergilmour1987/backrank/blob/main/README.md
 [releases-link]:      https://github.com/petergilmour1987/backrank/releases
 [results-link]:       https://github.com/petergilmour1987/backrank/tree/main/results
-[roadmap-link]:       https://github.com/petergilmour1987/backrank/blob/main/docs/plan-v1.md
+[roadmap-link]:       https://github.com/petergilmour1987/backrank/blob/main/ROADMAP.md
 [rustup-link]:        https://rustup.rs
 [src-link]:           https://github.com/petergilmour1987/backrank/tree/main/src
 [stockfish-link]:     https://stockfishchess.org

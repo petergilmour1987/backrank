@@ -7,7 +7,7 @@ living document: tick items off, record what happened, and add ideas as they com
 [`docs/plan-release.md`](docs/plan-release.md) covers branches and releases. This file takes
 over from the list of later work in `plan-v1.md` §9.
 
-**Last updated:** 2026-11-06, for v0.2.0 on the `sf-elo2000` rung.
+**Last updated:** 2026-11-15, for v0.3.0 on the `sf-elo2000` rung.
 
 ## Contents
 
@@ -76,7 +76,7 @@ Claims in this file come from three places, and they should not be treated alike
 | Evaluation | Material and Michniewski's piece-square tables, with a sudden switch between two king tables | Tapering, tuning, pawn structure, mobility, king safety, any endgame knowledge |
 | Time | `remaining/20 + inc/2` hard limit, half of that as the soft limit | Stability-based scaling, instant single replies |
 | UCI | `Move Overhead`, all clock and limit types except `mate` and `searchmoves` | `Hash`, `Threads`, MultiPV, pondering |
-| Tooling | Ladder, SPRT, calibration, perft-diff, self-play gate, release pipeline | `bench`, adjudication, a gauntlet of real engines, data generation, tuning |
+| Tooling | Ladder, SPRT, calibration, perft-diff, self-play gate, release pipeline, `bench` | Adjudication, a gauntlet of real engines, data generation, tuning |
 
 ### Baseline measurements
 
@@ -199,10 +199,14 @@ until the gauntlet in [M6](#stage-1-better-measurement) gives a second opinion.
 This is the plan's existing next step (`plan-v1.md` §5). Of the v1 definition of done in §1,
 items 1, 3 and 4 are met. Items 2 (robust UCI) and 5 (tagged release) remain.
 
-- [ ] **H1. `backrank bench`.** Search a fixed set of positions at a fixed depth and print total
+- [x] **H1. `backrank bench`.** Search a fixed set of positions at a fixed depth and print total
   nodes and nodes per second. Use the format OpenBench expects, such as `4712710 nodes 1323423
   nps`, which costs nothing and keeps that door open. It must be deterministic: single thread, no
-  time limits, state cleared between positions.
+  time limits, state cleared between positions. **Done in v0.3.0:** 50 positions (the perft suite
+  plus 44 sampled from our own `sf-elo2000` games across all phases) at depth 5, giving
+  19,532,453 nodes in about 2 s at 9.5 million nodes per second. Depth 7 took 80 s, because
+  without a TT or pruning one tactical position alone costs a third of the total. Raise the depth
+  once Stages 3 and 7 shrink the tree, and treat that as a deliberate change of fingerprint.
 - [ ] **H2. Use the node count.** Fill the `bench_nodes` column already in `results/ladder.csv`
   (and add it to `sprt.csv`), put it in commit messages, and check that it matches on Linux, macOS
   and Windows in CI. `plan-release.md` §2 notes that the strength-evidence gate can then compare
@@ -215,9 +219,9 @@ items 1, 3 and 4 are met. Items 2 (robust UCI) and 5 (tagged release) remain.
   (`plan-release.md` §7), using release archives rather than local builds.
 - [ ] **H5. Final climb and v1.0.0.** Run `cargo xtask ladder --climb`, update the README's rating,
   then `cargo xtask bump major`.
-- [ ] **H6. Finish the rename.** `repository` in `Cargo.toml` still has the old name and should
-  change with the next bump. The next release is also the first signed under the new name, so
-  check that `gh attestation verify` in `.github/release-footer.md` passes on it.
+- [ ] **H6. Finish the rename.** `repository` in `Cargo.toml` has the new name from v0.3.0, which
+  is also the first release signed under it. Once it's published, check that `gh attestation
+  verify` in `.github/release-footer.md` passes on it.
 
 ## Stage 1: Better measurement
 
@@ -820,8 +824,8 @@ Nothing here has been seen to cause a problem. Each is a small known gap.
   but not bishops all on one colour. Low impact.
 - [ ] **B3. Quiescence in check.** It stands pat while in check and can't see mate there. See
   [Tried and rejected](#tried-and-rejected).
-- [ ] **B4. Roadmap links.** The README's roadmap link and `CONTRIBUTING.md` still point to
-  `docs/plan-v1.md`.
+- [x] **B4. Roadmap links.** The README's roadmap link and `CONTRIBUTING.md` pointed to
+  `docs/plan-v1.md`. Both point here since v0.3.0.
 
 ## Tried and rejected
 
