@@ -43,7 +43,7 @@ to directly. A pull request can merge once the `gates` check passes:
 | Gate | Runs on | Checks |
 |---|---|---|
 | `lint` | Linux | `cargo fmt --all --check` and `cargo clippy` with warnings as errors |
-| `test` | Linux, macOS, Windows | `cargo test` (only the engine on Windows, as the match tooling is macOS and Linux only) |
+| `test` | Linux, macOS, Windows | `cargo test` (only the engine on Windows, as the match tooling is macOS and Linux only), then the release binary's bench node count against `results/bench.toml` |
 | `deep-perft` | Linux | The ignored perft tests, in release mode |
 | `msrv` | Linux | The engine still builds with the `rust-version` in `Cargo.toml` |
 | `uci` | Linux | `fastchess --compliance`, and 20 self-play games that fail on any crash, illegal move or time loss |
@@ -68,9 +68,30 @@ A pull request that changes `src/search/` or `src/eval/` must commit new rows to
 `results/sprt.csv` and `results/ladder.csv`. If the change can't alter play, label it
 `no-strength-test` instead. [`docs/plan-release.md`](docs/plan-release.md) has the full plan.
 
-Give the node count from `cargo run --release -- bench` in the message of every commit that
-changes the search or evaluation, as a last line such as `Bench: 19532453`. The count only
-changes when what the engine searches changes, so a pure speed-up keeps it the same.
+### Bench node count
+
+`cargo run --release -- bench` searches a fixed set of positions to a fixed depth, and its
+total node count fingerprints the search. `results/bench.toml` holds the expected count, and
+the `test` gate checks that the release binary gives exactly that on Linux, macOS and Windows.
+Run the same check locally with:
+
+```sh
+cargo test --release --test bench -- --ignored
+```
+
+- **A change that alters the tree** (search, evaluation, move ordering) changes the count. Put
+  the new count in `results/bench.toml`, and in the commit message as a last line such as
+  `Bench: 19532453`.
+- **A pure speed-up or refactor** keeps the count. If the check fails anyway, the change
+  altered the search by accident.
+- **An unchanged count doesn't prove play is unchanged.** `bench` has no clock, so a change to
+  time management keeps the count. `check-release` points out an unchanged count, but the
+  `no-strength-test` label is still a decision made by hand.
+
+`cargo xtask ladder` and `cargo xtask sprt` record each engine's count in `results/ladder.csv`
+(`bench_nodes`) and `results/sprt.csv` (`new_bench`, `base_bench`). The columns are empty for
+builds from before `bench` existed. An SPRT whose two versions have the same count is testing
+speed or time management only, and says so.
 
 ### Versions
 

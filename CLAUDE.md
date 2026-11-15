@@ -24,7 +24,8 @@ xtask/src/bin/sfproxy.rs  # Stockfish Skill 0 that plays random moves with proba
 tools/ladder.toml   # the Stockfish difficulty ladder (committed)
 tools/              # bin/, books/, engines/ are installed by `cargo xtask setup` (gitignored)
 results/            # ladder.csv, sprt.csv, state.toml, calibration.toml are committed history;
-                    # pgn/ and logs/ hold match output (gitignored)
+                    # bench.toml is the expected bench node count; pgn/ and logs/ hold match
+                    # output (gitignored)
 docs/               # usage.md, plus plans and design docs — v1: plan-v1.md, releases: plan-release.md
 CONTRIBUTING.md     # requirements, checks, development workflow, version rules, match tooling
 README.md           # the front page: overview, install, compile, terms; detail lives in the two above
@@ -44,6 +45,7 @@ cargo run --release             # run the engine binary
 cargo run --release -- --version  # print the version
 cargo test                      # all tests
 cargo test --release            # use for slow tests (e.g. deep perft)
+cargo test --release --test bench -- --ignored   # bench node count matches results/bench.toml
 cargo fmt                       # format (config: rustfmt.toml)
 cargo clippy --workspace --all-targets -- -D warnings   # lint; must be clean
 cargo build --profile profiling # release + debug symbols, for profilers/flamegraphs
@@ -115,10 +117,12 @@ pass. Run them locally before pushing: pull requests must also pass them in CI.
 
 Phases 0 to 5 are done (tooling, core types, move generation, UCI, Stockfish ladder, search and
 evaluation); Backrank is on the `sf-elo2000` rung. The branch, gate and GitHub Release process
-(`docs/plan-release.md`) is in place. Next is Phase 6 (hardening and v1.0.0). For any search or
-eval change, follow the development loop in plan §8 on a branch: tests, then `caffeinate -i
-cargo xtask sprt`, then `caffeinate -i cargo xtask ladder --note ...`, then `cargo xtask bump
-<level>` and a pull request. Commit the code first, so runs are labelled with a clean hash, and
+(`docs/plan-release.md`) is in place. Phase 6 (hardening and v1.0.0) is under way; `ROADMAP.md`
+tracks it and everything after it, item by item. For any search or eval change, follow the
+development loop in plan §8 on a branch: tests, update `results/bench.toml` and put
+`Bench: <nodes>` in the code commit's message, then `caffeinate -i cargo xtask sprt`, then
+`caffeinate -i cargo xtask ladder --note ...`, then `cargo xtask bump <level>` and a pull
+request. Commit the code first, so runs are labelled with a clean hash, and
 the `results/` rows afterwards. The ladder builds the working tree, so don't leave other edits
 in it when a run starts. Stage explicit paths when committing. After changing move generation
 or make/unmake, also run `cargo test --release --test perft -- --ignored`, and use `cargo xtask

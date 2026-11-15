@@ -345,6 +345,10 @@ pub fn run(args: &Args) -> Result<()> {
 
     let label = engine::version_label()?;
     let backrank = engine::snapshot(&engine::build_backrank()?, &label)?;
+    let bench = engine::bench_nodes(&backrank)?;
+    if let Some(nodes) = bench {
+        println!("ladder: Backrank {label} bench: {nodes} nodes");
+    }
     let sfproxy = engine::build_sfproxy()?;
     let stockfish_name = engine::id_name(&paths::stockfish())?;
 
@@ -494,6 +498,7 @@ pub fn run(args: &Args) -> Result<()> {
 
         append_row(&Row {
             label: &label,
+            bench,
             rung: rung.name.clone(),
             rating,
             stockfish: &stockfish_name,
@@ -527,6 +532,8 @@ fn whole(x: f64) -> String {
 
 struct Row<'a> {
     label: &'a str,
+    /// The engine's `bench` node count, if it has the command.
+    bench: Option<u64>,
     rung: String,
     rating: Option<Rating>,
     stockfish: &'a str,
@@ -573,8 +580,7 @@ fn append_row(row: &Row) -> Result<()> {
     let fields = [
         time::date_time(),
         row.label.to_string(),
-        // Filled in once `backrank bench` exists (Phase 6).
-        String::new(),
+        row.bench.map(|n| n.to_string()).unwrap_or_default(),
         row.rung.clone(),
         rung_rating,
         rung_bound,

@@ -207,10 +207,14 @@ items 1, 3 and 4 are met. Items 2 (robust UCI) and 5 (tagged release) remain.
   19,532,453 nodes in about 2 s at 9.5 million nodes per second. Depth 7 took 80 s, because
   without a TT or pruning one tactical position alone costs a third of the total. Raise the depth
   once Stages 3 and 7 shrink the tree, and treat that as a deliberate change of fingerprint.
-- [ ] **H2. Use the node count.** Fill the `bench_nodes` column already in `results/ladder.csv`
+- [x] **H2. Use the node count.** Fill the `bench_nodes` column already in `results/ladder.csv`
   (and add it to `sprt.csv`), put it in commit messages, and check that it matches on Linux, macOS
   and Windows in CI. `plan-release.md` §2 notes that the strength-evidence gate can then compare
-  node counts: an unchanged count means no strength test is needed.
+  node counts: an unchanged count means no strength test is needed. **Done:** `results/bench.toml`
+  holds the count, and the `test` gate checks the release binary against it on all three systems.
+  Ladder and SPRT rows record it (`sprt.csv` gained `new_bench` and `base_bench`, empty for older
+  rows). The gate does **not** waive evidence on an unchanged count, only says so: bench has no
+  clock, so a time management change such as `T3` keeps the count but changes play.
 - [ ] **H3. Stress run.** 1,000 games mixing clock controls (including `1+0.01`) with fixed
   move-time games, requiring 0 crashes, 0 illegal moves, 0 protocol errors and under 0.5% time
   losses. `cargo xtask selfplay` covers clock games. Move-time games need a small extension

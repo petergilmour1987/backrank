@@ -42,6 +42,11 @@ pub struct Args {
     max_games: u32,
 }
 
+/// The columns of `results/sprt.csv`. The bench columns are empty for versions from before
+/// `backrank bench` existed.
+const HEADER: &str = "date,new,new_bench,base,base_bench,tc,elo0,elo1,alpha,beta,games,wins,\
+draws,losses,elo,elo_low,elo_high,new_faults,base_faults,seed,result";
+
 pub fn run(args: &Args) -> Result<()> {
     ensure!(args.elo0 < args.elo1, "--elo0 must be below --elo1");
     ensure!(args.max_games >= 2, "--max-games must be at least 2");
@@ -77,6 +82,25 @@ pub fn run(args: &Args) -> Result<()> {
                 binary.display()
             )
         })?;
+    }
+
+    let new_bench = engine::bench_nodes(&new)?;
+    // The base's count is only a note, so a broken base bench shouldn't stop the run.
+    let base_bench = engine::bench_nodes(&base).unwrap_or_else(|e| {
+        println!("sprt: warning: couldn't bench the base version: {e:#}");
+        None
+    });
+    let show = |bench: Option<u64>| bench.map_or("none".to_string(), |n| n.to_string());
+    println!(
+        "sprt: bench {} (new) and {} (base)",
+        show(new_bench),
+        show(base_bench)
+    );
+    if new_bench.is_some() && new_bench == base_bench {
+        println!(
+            "sprt: note: both versions search the same tree, so this measures speed or time \
+             management only"
+        );
     }
 
     let new_name = format!("new-{new_label}");
@@ -151,14 +175,16 @@ pub fn run(args: &Args) -> Result<()> {
             String::new()
         }
     };
+    let count = |bench: Option<u64>| bench.map(|n| n.to_string()).unwrap_or_default();
     append_csv(
         &paths::sprt_csv(),
-        "date,new,base,tc,elo0,elo1,alpha,beta,games,wins,draws,losses,elo,elo_low,elo_high,\
-         new_faults,base_faults,seed,result",
+        HEADER,
         &[
             time::date_time(),
             new_label,
+            count(new_bench),
             base_label,
+            count(base_bench),
             args.tc.clone(),
             args.elo0.to_string(),
             args.elo1.to_string(),

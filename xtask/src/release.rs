@@ -281,6 +281,9 @@ struct Facts<'a> {
     no_strength_test: bool,
 }
 
+/// Where the expected `bench` node count is committed.
+const BENCH_FILE: &str = "results/bench.toml";
+
 fn problems(facts: &Facts) -> Vec<String> {
     let (base, head) = (facts.base, facts.head);
     let mut problems = Vec::new();
@@ -317,6 +320,15 @@ fn problems(facts: &Facts) -> Vec<String> {
         .iter()
         .any(|path| path.starts_with("src/search/") || path.starts_with("src/eval/"));
     if changes_play && !facts.no_strength_test {
+        // An unchanged bench means the same tree at a fixed depth, which suggests a
+        // refactor or speed-up. It can't prove play is the same, because bench has no clock:
+        // a time management change keeps the count. So it's a hint, not a waiver.
+        let hint = if facts.changed.iter().any(|path| path == BENCH_FILE) {
+            ""
+        } else {
+            " (the bench node count is unchanged, which fits a refactor or speed-up but \
+             doesn't by itself justify the label: a time management change keeps it too)"
+        };
         for (rows, file) in [
             (facts.sprt_rows_added, "results/sprt.csv"),
             (facts.ladder_rows_added, "results/ladder.csv"),
@@ -324,7 +336,7 @@ fn problems(facts: &Facts) -> Vec<String> {
             if rows == 0 {
                 problems.push(format!(
                     "this changes search or eval, but adds no rows to {file}: \
-                     commit the run, or label the pull request `no-strength-test`"
+                     commit the run, or label the pull request `no-strength-test`{hint}"
                 ));
             }
         }
@@ -779,5 +791,30 @@ mod tests {
             };
             assert_eq!(problems(&waived), Vec::<String>::new());
         }
+    }
+
+    #[test]
+    fn an_unchanged_bench_hints_at_the_label_but_doesnt_waive_evidence() {
+        let same_tree = paths(&["src/search/mod.rs"]);
+        let found = problems(&good_facts(&same_tree, NOTES));
+        assert_eq!(found.len(), 2);
+        assert!(
+            found
+                .iter()
+                .all(|p| p.contains("bench node count is unchanged"))
+        );
+
+        let new_tree = paths(&["src/search/mod.rs", BENCH_FILE]);
+        let found = problems(&good_facts(&new_tree, NOTES));
+        assert_eq!(found.len(), 2);
+        assert!(found.iter().all(|p| !p.contains("bench")));
+
+        // A bench change alone needs no strength evidence, and doesn't ship.
+        let bench_only = paths(&[BENCH_FILE]);
+        let facts = Facts {
+            head: v("0.1.0"),
+            ..good_facts(&bench_only, NOTES)
+        };
+        assert_eq!(problems(&facts), Vec::<String>::new());
     }
 }
