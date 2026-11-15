@@ -65,7 +65,8 @@ pub struct Sprt {
 /// A two-engine match. Every opening is played twice with colours swapped.
 pub struct Match<'a> {
     pub engines: [EngineSpec; 2],
-    /// Cute Chess time control format, e.g. `8+0.08`.
+    /// Cute Chess time control format, e.g. `8+0.08` or `40/60` (40 moves in 60 seconds),
+    /// or a fastchess limit written as `key=value`, e.g. `st=0.1` for 0.1 s per move.
     pub tc: &'a str,
     /// Each round is one opening played from both sides (two games).
     pub rounds: u32,
@@ -79,6 +80,16 @@ pub struct Match<'a> {
     pub sprt: Option<Sprt>,
 }
 
+/// The `-each` argument for a time control: `tc=<tc>`, or the limit itself when it's
+/// already written as `key=value` (such as `st=0.1`).
+fn time_limit(tc: &str) -> String {
+    if tc.contains('=') {
+        tc.to_string()
+    } else {
+        format!("tc={tc}")
+    }
+}
+
 impl Match<'_> {
     pub fn args(&self) -> Vec<String> {
         let mut args = Vec::new();
@@ -90,7 +101,7 @@ impl Match<'_> {
         let log = self.log.display();
         args.extend([
             "-each".into(),
-            format!("tc={}", self.tc),
+            time_limit(self.tc),
             "-openings".into(),
             format!("file={book}"),
             "format=epd".into(),
@@ -201,6 +212,13 @@ mod tests {
         assert!(joined.contains("-rounds 10 -repeat -concurrency 4"));
         assert!(joined.contains("-openings file=/book.epd format=epd order=random"));
         assert!(joined.ends_with("-srand 7"));
+    }
+
+    #[test]
+    fn time_controls_and_move_times() {
+        assert_eq!(time_limit("8+0.08"), "tc=8+0.08");
+        assert_eq!(time_limit("20/5"), "tc=20/5");
+        assert_eq!(time_limit("st=0.1"), "st=0.1");
     }
 
     #[test]
