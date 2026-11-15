@@ -270,8 +270,14 @@ take about 5 minutes.
 | Option | Default | Effect |
 |---|---|---|
 | `--games <n>` | `200` | Number of games. Must be even. |
-| `--tc <tc>` | `4+0.04` | Time control as seconds+increment. |
+| `--tc <tc>` | `4+0.04` | Time control as seconds+increment, or moves/seconds for a repeating control (`20/5`). `st=<seconds>` gives a fixed time per move instead, such as `st=0.1`. |
 | `--concurrency <n>` | `8` | Games played at the same time. |
+
+The release stress run (roadmap H3) plays 1,000 games over mixed controls, one `selfplay`
+per control, under `caffeinate -i`: `1+0.01` (300 games), `4+0.04` (200), `20/5` (100),
+`st=0.1` (200) and `st=0.05` (200). It takes about 25 minutes. With a fixed move time,
+Backrank aims to finish `Move Overhead` (20 ms) early, so a stall of more than that on a busy
+Mac loses on time. Expect the odd one at concurrency 8.
 
 fastchess can also check the engine's UCI behaviour directly:
 

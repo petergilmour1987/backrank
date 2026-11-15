@@ -215,17 +215,36 @@ items 1, 3 and 4 are met. Items 2 (robust UCI) and 5 (tagged release) remain.
   Ladder and SPRT rows record it (`sprt.csv` gained `new_bench` and `base_bench`, empty for older
   rows). The gate does **not** waive evidence on an unchanged count, only says so: bench has no
   clock, so a time management change such as `T3` keeps the count but changes play.
-- [ ] **H3. Stress run.** 1,000 games mixing clock controls (including `1+0.01`) with fixed
+- [x] **H3. Stress run.** 1,000 games mixing clock controls (including `1+0.01`) with fixed
   move-time games, requiring 0 crashes, 0 illegal moves, 0 protocol errors and under 0.5% time
   losses. `cargo xtask selfplay` covers clock games. Move-time games need a small extension
-  (check fastchess's `st=` in its `man.md`). Run it under `caffeinate -i`.
-- [ ] **H4. GUI checks.** Try Cute Chess or BanksiaGUI on macOS, and a GUI on Windows
-  (`plan-release.md` §7), using release archives rather than local builds.
+  (check fastchess's `st=` in its `man.md`). Run it under `caffeinate -i`. **Passed on
+  2026-11-15 with v0.3.0,** at concurrency 8: `1+0.01` 300 games, `4+0.04` 200, `20/5` 100,
+  `st=0.1` 200, `st=0.05` 200 (`selfplay --tc st=...` now plays move-time games). 0 crashes,
+  0 illegal moves, no other fastchess warnings, and 2 time losses (0.2%), both with a fixed
+  move time: 8 ms over at `st=0.1` (ply 128) and 2 ms over at `st=0.05` (a game's first move).
+  - **Cause: machine load, not the search.** Backrank aims to finish `Move Overhead` (20 ms)
+    before the limit. Idle, 500 timed `go movetime` searches all ended within 0.9 ms of that
+    target. With 8 searching at once the worst was 6 ms over the target, still inside the
+    limit. With 14 at once, on every core, overruns reached 129 ms. Rerun at concurrency 4,
+    the two move-time stages had no losses in 400 games, with the slowest moves at 0.031 s of
+    0.05 s and 0.091 s of 0.1 s.
+  - Clock games have reserve and saw no losses. If move-time losses matter for a user (a GUI
+    on a loaded machine), raise `Move Overhead`. Stockfish's default is 10 ms, and ours is
+    already 20 ms.
+- [x] **H4. GUI checks.** Try Cute Chess or BanksiaGUI on macOS, and a GUI on Windows
+  (`plan-release.md` §7), using release archives rather than local builds. **Done on
+  2026-11-15 in En Croissant on macOS** with the v0.3.0 release: installing, the engine's name
+  and option, unlimited and limited analysis, pasted FENs, checkmate and stalemate, and full
+  games against it with a clock as both colours all worked (the owner's check). **Windows was
+  skipped**, with no Windows machine to hand. CI builds every Windows release binary on
+  Windows and runs it with `verify-binary` before publishing.
 - [ ] **H5. Final climb and v1.0.0.** Run `cargo xtask ladder --climb`, update the README's rating,
   then `cargo xtask bump major`.
-- [ ] **H6. Finish the rename.** `repository` in `Cargo.toml` has the new name from v0.3.0, which
-  is also the first release signed under it. Once it's published, check that `gh attestation
-  verify` in `.github/release-footer.md` passes on it.
+- [x] **H6. Finish the rename.** `repository` in `Cargo.toml` has the new name from v0.3.0, which
+  is also the first release signed under it. **Checked on 2026-11-15:** all five v0.3.0
+  archives pass `shasum -c SHA256SUMS` and `gh attestation verify <file> --repo
+  petergilmour1987/backrank`, the command in `.github/release-footer.md`.
 
 ## Stage 1: Better measurement
 
