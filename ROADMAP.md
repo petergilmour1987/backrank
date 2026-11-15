@@ -7,7 +7,7 @@ living document: tick items off, record what happened, and add ideas as they com
 [`docs/plan-release.md`](docs/plan-release.md) covers branches and releases. This file takes
 over from the list of later work in `plan-v1.md` §9.
 
-**Last updated:** 2026-11-15, for v0.3.0 on the `sf-elo2000` rung.
+**Last updated:** 2026-11-15, for v1.0.0 on the `sf-elo2000` rung. Stage 0 is done.
 
 ## Contents
 
@@ -196,8 +196,8 @@ until the gauntlet in [M6](#stage-1-better-measurement) gives a second opinion.
 
 ## Stage 0: Phase 6 and v1.0.0
 
-This is the plan's existing next step (`plan-v1.md` §5). Of the v1 definition of done in §1,
-items 1, 3 and 4 are met. Items 2 (robust UCI) and 5 (tagged release) remain.
+This was the plan's existing next step (`plan-v1.md` §5). **Done:** with H3 every item of the
+v1 definition of done in §1 was met except the tagged release, which H5 completes.
 
 - [x] **H1. `backrank bench`.** Search a fixed set of positions at a fixed depth and print total
   nodes and nodes per second. Use the format OpenBench expects, such as `4712710 nodes 1323423
@@ -239,8 +239,11 @@ items 1, 3 and 4 are met. Items 2 (robust UCI) and 5 (tagged release) remain.
   games against it with a clock as both colours all worked (the owner's check). **Windows was
   skipped**, with no Windows machine to hand. CI builds every Windows release binary on
   Windows and runs it with `verify-binary` before publishing.
-- [ ] **H5. Final climb and v1.0.0.** Run `cargo xtask ladder --climb`, update the README's rating,
-  then `cargo xtask bump major`.
+- [x] **H5. Final climb and v1.0.0.** Run `cargo xtask ladder --climb`, update the README's rating,
+  then `cargo xtask bump major`. **Done on 2026-11-15:** the climb stayed on `sf-elo2000` at
+  56.9% (W134 D5 L101), Elo +48 [+5, +93], estimated rating 2048, recorded at `2f64497` with
+  bench 19,532,453. The previous run of the same engine scored 58.5% (2060). The README says
+  about 2050, and v1.0.0 is the first release that isn't a pre-release.
 - [x] **H6. Finish the rename.** `repository` in `Cargo.toml` has the new name from v0.3.0, which
   is also the first release signed under it. **Checked on 2026-11-15:** all five v0.3.0
   archives pass `shasum -c SHA256SUMS` and `gh attestation verify <file> --repo

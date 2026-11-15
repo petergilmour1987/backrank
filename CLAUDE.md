@@ -115,11 +115,11 @@ pass. Run them locally before pushing: pull requests must also pass them in CI.
 
 ## Status
 
-Phases 0 to 5 are done (tooling, core types, move generation, UCI, Stockfish ladder, search and
-evaluation); Backrank is on the `sf-elo2000` rung. The branch, gate and GitHub Release process
-(`docs/plan-release.md`) is in place. Phase 6 (hardening and v1.0.0) is under way; `ROADMAP.md`
-tracks it and everything after it, item by item. For any search or eval change, follow the
-development loop in plan §8 on a branch: tests, update `results/bench.toml` and put
+Phases 0 to 6 are done (tooling, core types, move generation, UCI, Stockfish ladder, search and
+evaluation, hardening), and the result is v1.0.0 on the `sf-elo2000` rung. The branch, gate and
+GitHub Release process (`docs/plan-release.md`) is in place. What comes next is in `ROADMAP.md`,
+starting with Stage 1 (measurement) and Stage 2 (small search fixes). For any search or eval
+change, follow the development loop in plan §8 on a branch: tests, update `results/bench.toml` and put
 `Bench: <nodes>` in the code commit's message, then `caffeinate -i cargo xtask sprt`, then
 `caffeinate -i cargo xtask ladder --note ...`, then `cargo xtask bump <level>` and a pull
 request. Commit the code first, so runs are labelled with a clean hash, and
