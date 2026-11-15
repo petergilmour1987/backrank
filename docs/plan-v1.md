@@ -431,6 +431,17 @@ The estimate comes from the last rung played in each run, and the interval is ab
 - A manual check in a GUI (Cute Chess or BanksiaGUI on macOS).
 - Final ladder climb, the README updated with the estimated rating, and the `v1.0.0` tag.
 
+**Outcome (2026-11-15).** All done, and tracked item by item as H1 to H6 in `ROADMAP.md`:
+
+- `bench` has 50 positions at depth 5: 19,532,453 nodes, checked on all three systems in CI.
+- The stress run met item 2: 1,000 games, no crashes, illegal moves or protocol errors, and
+  2 time losses (0.2%), both fixed move-time games on a loaded machine.
+- En Croissant on macOS worked with the v0.3.0 release. The Windows GUI check was skipped.
+- The final climb stayed on `sf-elo2000` at 56.9%, an estimated 2048, well past item 3's
+  `sf-elo1500` goal and its `sf-elo1600` stretch goal.
+
+Later work continues in `ROADMAP.md`, which replaces §9.
+
 ## 6. The Stockfish ladder
 
 ### 6.1 Stockfish's own strength controls (Stockfish 19, verified via `uci` output)

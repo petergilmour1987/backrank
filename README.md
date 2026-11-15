@@ -43,17 +43,17 @@ Backrank **does not include a graphical user interface** (GUI). To play against 
 with it, add it as a UCI engine to a GUI such as Cute Chess, Arena or BanksiaGUI. See the
 [documentation][usage-link] for the commands it supports.
 
-**Status:** in development towards v1. Backrank is measured by playing Stockfish's
-strength-limited settings on a difficulty ladder that gets harder as it improves. At 8+0.08, it
-beats `UCI_Elo` 1900 and scores 58.5% against 2000, for an estimated rating of about 2060. That
-estimate is probably optimistic at this fast time control. Every run is recorded in
-[`results/ladder.csv`][ladder-link].
+**Status:** v1, a correct and robust classical engine. Backrank is measured by playing
+Stockfish's strength-limited settings on a difficulty ladder that gets harder as it improves.
+At 8+0.08, it beats `UCI_Elo` 1900 and scores 56.9% against 2000 over 240 games, for an
+estimated rating of about 2050. That estimate is probably optimistic at this fast time
+control. Every run is recorded in [`results/ladder.csv`][ladder-link].
 
 ## Installing
 
 Prebuilt binaries are on the
-[releases page](https://github.com/petergilmour1987/backrank/releases). Until
-v1.0.0, releases are marked as pre-releases.
+[releases page](https://github.com/petergilmour1987/backrank/releases). Releases
+before v1.0.0 are marked as pre-releases.
 
 | Archive | For |
 |---|---|
