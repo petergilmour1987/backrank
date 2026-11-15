@@ -4,8 +4,11 @@ Notable changes to Backrank. The version rules are in [`CONTRIBUTING.md`](CONTRI
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-15
+
 The first stable release. Backrank meets its v1 definition of done: perft-verified move
-generation, a clean 1,000-game stress run, a working test harness, and measured strength.
+generation, a 1,000-game stress run within its limits, a working test harness, and measured
+strength.
 The engine plays as in 0.3.0.
 
 ### Strength
