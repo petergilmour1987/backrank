@@ -232,13 +232,19 @@ items 1, 3 and 4 are met. Items 2 (robust UCI) and 5 (tagged release) remain.
   - Clock games have reserve and saw no losses. If move-time losses matter for a user (a GUI
     on a loaded machine), raise `Move Overhead`. Stockfish's default is 10 ms, and ours is
     already 20 ms.
-- [ ] **H4. GUI checks.** Try Cute Chess or BanksiaGUI on macOS, and a GUI on Windows
-  (`plan-release.md` §7), using release archives rather than local builds.
+- [x] **H4. GUI checks.** Try Cute Chess or BanksiaGUI on macOS, and a GUI on Windows
+  (`plan-release.md` §7), using release archives rather than local builds. **Done on
+  2026-11-15 in En Croissant on macOS** with the v0.3.0 release: installing, the engine's name
+  and option, unlimited and limited analysis, pasted FENs, checkmate and stalemate, and full
+  games against it with a clock as both colours all worked (the owner's check). **Windows was
+  skipped**, with no Windows machine to hand. CI builds every Windows release binary on
+  Windows and runs it with `verify-binary` before publishing.
 - [ ] **H5. Final climb and v1.0.0.** Run `cargo xtask ladder --climb`, update the README's rating,
   then `cargo xtask bump major`.
-- [ ] **H6. Finish the rename.** `repository` in `Cargo.toml` has the new name from v0.3.0, which
-  is also the first release signed under it. Once it's published, check that `gh attestation
-  verify` in `.github/release-footer.md` passes on it.
+- [x] **H6. Finish the rename.** `repository` in `Cargo.toml` has the new name from v0.3.0, which
+  is also the first release signed under it. **Checked on 2026-11-15:** all five v0.3.0
+  archives pass `shasum -c SHA256SUMS` and `gh attestation verify <file> --repo
+  petergilmour1987/backrank`, the command in `.github/release-footer.md`.
 
 ## Stage 1: Better measurement
 
