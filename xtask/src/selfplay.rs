@@ -12,7 +12,8 @@ pub struct Args {
     /// Number of games (even: each opening is played from both sides).
     #[arg(long, default_value_t = 200)]
     games: u32,
-    /// Time control in Cute Chess format (seconds+increment).
+    /// Time control in Cute Chess format: seconds+increment, or moves/seconds for repeating
+    /// controls (`20/5`). `st=<seconds>` plays a fixed time per move instead.
     #[arg(long, default_value = "4+0.04")]
     tc: String,
     /// Games played at the same time.
