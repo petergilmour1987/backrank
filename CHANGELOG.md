@@ -4,6 +4,8 @@ Notable changes to Backrank. The version rules are in [`CONTRIBUTING.md`](CONTRI
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-15
+
 ### Added
 
 - `backrank bench [depth]`: a fixed-depth search of 50 positions, printing each one's best
