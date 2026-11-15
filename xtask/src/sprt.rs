@@ -85,7 +85,11 @@ pub fn run(args: &Args) -> Result<()> {
     }
 
     let new_bench = engine::bench_nodes(&new)?;
-    let base_bench = engine::bench_nodes(&base)?;
+    // The base's count is only a note, so a broken base bench shouldn't stop the run.
+    let base_bench = engine::bench_nodes(&base).unwrap_or_else(|e| {
+        println!("sprt: warning: couldn't bench the base version: {e:#}");
+        None
+    });
     let show = |bench: Option<u64>| bench.map_or("none".to_string(), |n| n.to_string());
     println!(
         "sprt: bench {} (new) and {} (base)",

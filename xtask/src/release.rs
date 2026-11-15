@@ -326,8 +326,8 @@ fn problems(facts: &Facts) -> Vec<String> {
         let hint = if facts.changed.iter().any(|path| path == BENCH_FILE) {
             ""
         } else {
-            " (the bench node count is unchanged, so if this is a refactor or speed-up that \
-             leaves time management alone, the label is probably right)"
+            " (the bench node count is unchanged, which fits a refactor or speed-up but \
+             doesn't by itself justify the label: a time management change keeps it too)"
         };
         for (rows, file) in [
             (facts.sprt_rows_added, "results/sprt.csv"),

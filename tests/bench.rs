@@ -24,7 +24,11 @@ fn bench_matches_the_committed_node_count() {
         .arg("bench")
         .output()
         .expect("failed to run backrank");
-    assert!(output.status.success());
+    assert!(
+        output.status.success(),
+        "bench failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stdout = String::from_utf8_lossy(&output.stdout);
     let last = stdout.lines().last().expect("bench printed something");
     let nodes: u64 = last
