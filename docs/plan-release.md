@@ -78,7 +78,7 @@ Everything reports into a single required check called `gates`, which is much si
 - If the version changed, it must be a single valid step up from `main`'s, and its tag must not already exist.
 - If the version changed, `CHANGELOG.md` must have a non-empty section for it.
 
-**SPRT and ladder runs stay on the development Mac.** Timed matches on shared 4-core runners are noisy, and one SPRT has already taken 4,489 games. CI checks that the evidence was committed rather than producing it. After Phase 6 adds `backrank bench`, the path rule above can compare node counts instead: unchanged bench, no strength test needed.
+**SPRT and ladder runs stay on the development Mac.** Timed matches on shared 4-core runners are noisy, and one SPRT has already taken 4,489 games. CI checks that the evidence was committed rather than producing it. Since `backrank bench` arrived (v0.3.0), `results/bench.toml` holds its node count and the test gate checks it on every OS. `check-release` points out a search or eval change that leaves the count alone, but doesn't waive the evidence for it: bench searches to a fixed depth with no clock, so a time management change keeps the count while still changing play.
 
 ## 3. Release pipeline
 

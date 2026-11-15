@@ -103,6 +103,38 @@ pub fn snapshot(binary: &Path, label: &str) -> Result<PathBuf> {
     Ok(dest)
 }
 
+/// Runs `<binary> bench` and returns its total node count. `None` for a build from before
+/// `bench` existed, which rejects it as a usage error (exit code 2).
+pub fn bench_nodes(binary: &Path) -> Result<Option<u64>> {
+    let output = Command::new(binary)
+        .arg("bench")
+        .stdin(Stdio::null())
+        .output()
+        .with_context(|| format!("failed to run {} bench", binary.display()))?;
+    if output.status.code() == Some(2) {
+        return Ok(None);
+    }
+    ensure!(
+        output.status.success(),
+        "{} bench failed ({}): {}",
+        binary.display(),
+        output.status,
+        String::from_utf8_lossy(&output.stderr).trim()
+    );
+    parse_bench(&String::from_utf8_lossy(&output.stdout)).map(Some)
+}
+
+/// The total from `bench` output, whose last line is `<nodes> nodes <nps> nps`.
+fn parse_bench(stdout: &str) -> Result<u64> {
+    let last = stdout.lines().last().unwrap_or_default();
+    match last.split_whitespace().collect::<Vec<_>>()[..] {
+        [nodes, "nodes", _, "nps"] => nodes
+            .parse()
+            .with_context(|| format!("bad node count in {last:?}")),
+        _ => bail!("unexpected last line from bench: {last:?}"),
+    }
+}
+
 /// Runs the UCI handshake and returns the engine's `id name` (e.g. "Stockfish 19").
 pub fn id_name(engine: &Path) -> Result<String> {
     let mut child = Command::new(engine)
@@ -124,5 +156,25 @@ pub fn id_name(engine: &Path) -> Result<String> {
     {
         Some(name) => Ok(name.trim().to_string()),
         None => bail!("{} did not report `id name` to `uci`", engine.display()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn reads_the_bench_total_from_the_last_line() {
+        let output = "bench at depth 5, 50 positions\n 1 b1c3 149027 startpos\n\
+                      19532453 nodes 9590596 nps\n";
+        assert_eq!(parse_bench(output).unwrap(), 19_532_453);
+        assert!(parse_bench("").is_err());
+        assert!(parse_bench("19532453 nodes\n").is_err());
+        assert!(parse_bench("x nodes 5 nps\n").is_err());
+    }
+
+    #[test]
+    fn a_binary_that_cant_run_is_an_error_not_an_old_build() {
+        assert!(bench_nodes(Path::new("/nonexistent/backrank")).is_err());
     }
 }

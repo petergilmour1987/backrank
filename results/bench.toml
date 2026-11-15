@@ -1,0 +1,4 @@
+# The total node count of `backrank bench` at its default depth. CI checks that the release
+# binary gives exactly this on Linux, macOS and Windows (tests/bench.rs). A change that alters
+# the search's tree must update it, and give the new count in its commit message.
+nodes = 19532453
